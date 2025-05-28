@@ -52,7 +52,6 @@ class Datafile:
         output = str(f"{self.clay_type}, {self.sand_content}, {self.water_content}, {self.lime_content}, {self.curing}, {self.drying}, {self.temperature}, {self.Co2}, {self.recompression}, {self.new_wc}")
         return output.split(", ")
 
-
 def get_filenames(directory):
     """Get all filenames in the specified directory."""
     if not os.path.isdir(directory):
