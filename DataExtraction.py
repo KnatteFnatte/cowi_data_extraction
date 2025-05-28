@@ -3,6 +3,7 @@ import pandas as pd
 import argparse
 import os
 import csv
+import shutil
 
 class Datafile:
     def __init__(self, filename):
@@ -61,23 +62,12 @@ def get_filenames(directory):
 def main():
     """Test the Datafile class."""
     #Change cwd to the argument passed from the command line
-    csv_file = csv.writer(open("output.csv", "w", newline=""))
-    csv_file.writerow("Clay type, Sand content, Water content, Lime content, Curing, Drying, Temperature, CO2, Recompression, New WC".split(", "))
     os.chdir(args.target_directory)
+    
     # Get the if the target directory contains any csv files
     file_list = get_filenames(os.getcwd())
-    if file_list == []:
-        print("No csv files found in the current working directory.")
-        return
-    #Extract the data from the files
-    for file in file_list:
-        try:
-            datafile = Datafile(file)
-            #print(datafile)
-            output = file.extract_data()
-            csv_file.writerow(output)
-        except ValueError as e:
-            print(f"Error processing file {file}: {e}")
+    csv_file = csv.writer(open("output.csv", "w", newline=""))
+    csv_file.writerow("Clay type, Sand content, Water content, Lime content, Curing, Drying, Temperature, CO2, Recompression, New WC".split(", "))  
 
 
     ############# TEST ###############
@@ -87,9 +77,28 @@ def main():
     csv_file.writerow(output)
     csv_file.writerow(output)  
     ############# END TEST ###############
-    
+
+
+    if file_list == []:
+        print("No csv files found in the current working directory.")
+        return
+    #Extract the data from the files
+    print(f"Found {len(file_list)} files in the target directory. Processing...")
+    for file in file_list:
+        if file == "output.csv":
+            print("WARNING: output.csv is in the target directory. The file will be overwritten.")
+            input("Press Enter to continue or Ctrl+C to exit.")
+            continue
+        try:
+            datafile = Datafile(file)
+            #print(datafile)
+            output = file.extract_data()
+            csv_file.writerow(output)
+        except ValueError as e:
+            print(f"Error processing file {file}: {e}")
 
     print("Data extraction complete. Output written to output.csv")
+    return
 
 if __name__ == "__main__":
     # Run the main function if this script is executed directly
@@ -105,4 +114,5 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     main()
+    shutil.move("output.csv", args.current_working_directory + "/output.csv")
     
