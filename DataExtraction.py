@@ -58,6 +58,17 @@ def get_filenames(directory):
         raise ValueError(f"The directory {directory} does not exist.")
     return [f for f in os.listdir(directory) if os.path.isfile(os.path.join(directory, f)) and f.endswith('.csv')]
 
+def merge_output_files(output_file, input_files):
+    """Merge multiple output files into a single output file."""
+    dataframes = []
+    for file in input_files:
+        df = pd.read_csv(file, sep=",", header=0, names=["Clay type", "Sand content", "Water content", "Lime content", "Curing", "Drying", "Temperature", "CO2", "Recompression", "New WC"])
+        dataframes.append(df)
+    merged_df = pd.concat(dataframes, ignore_index=True)
+    merged_df.to_csv(output_file, index=False, sep=",", header=True)
+    return merged_df
+
+
 def main():
     """Test the Datafile class."""
     #Change cwd to the argument passed from the command line
