@@ -46,17 +46,17 @@ class Datafile:
 
         #Add here any optional flags in naming convention (landerslev for example has Calcium which Egernsund does not)
         if len(name_parts) > 4:
-            if name_parts[4] == "Co2":
-                self.Co2 = True
-                del name_parts[4]
-                
-            if "Reco" in name_parts[4]:
-                self.recompression = True
-                self.new_wc = name_parts[4][6:]
-                del name_parts[4]
-            
-            if "Wet" in name_parts[4]:
-                self.testtype = "WetCompression"
+            for i in name_parts[4:]:
+                if i == "Co2":
+                    self.Co2 = True
+
+                if "Reco" in i:
+                    self.recompression = True
+                    self.new_wc = name_parts[4][6:]
+
+                if "Wet" in i:
+                    self.testtype = "WetCompression"
+
             
 
         
@@ -83,7 +83,10 @@ class Datafile:
             # Read the CSV data from the string
             new_df = pd.read_csv(StringData, header = 1, sep=";")
             # Rename the columns for clarity
-            new_df.columns = ["Time (s)","Displacement (mm)", "Force (kN)"]
+            if len(new_df.columns) == 4:
+                new_df.columns = ["Time (s)", "Displacement (mm)", "Force (kN)", "Unused"]
+            elif len(new_df.columns) == 3:
+                new_df.columns = ["Time (s)","Displacement (mm)", "Force (kN)"]
             # Get the maximum force value and its corresponding displacement
             max_force = new_df["Force (kN)"].max()
             max_displacement = new_df.loc[new_df["Force (kN)"] == max_force, "Displacement (mm)"].values[0]
@@ -152,18 +155,9 @@ def main():
     
     # Get the if the target directory contains any csv files
     file_list = get_filenames(os.getcwd())
-    csv_file = csv.writer(open("output.csv", "w", newline=""))
+    csv_file = csv.writer(open(args.output_file, "w", newline=""))
     csv_file.writerow("Clay type, Sand content, Water content, Lime content, Curing, Drying, Temperature, CO2, Recompression, New WC, Mean_Max_Force, Standard Deviation".split(", "))  
 
-    """
-    ############# TEST ###############
-    datafile = Datafile("ERS_S15_W15.8_L5_Cu28-C40_Co2.csv")
-    #print(datafile)
-    output = datafile.extract_data()
-    csv_file.writerow(output)
-    csv_file.writerow(output)  
-    ############# END TEST ###############
-    """
 
     if file_list == []:
         print("No csv files found in the current working directory.")
@@ -184,6 +178,7 @@ def main():
             print(f"Error processing file {file}: {e}")
 
     print("Data extraction complete. Output written to output.csv")
+    input("Press Enter to continue or Ctrl+C to exit.")
     return
 
 if __name__ == "__main__":
@@ -197,7 +192,9 @@ if __name__ == "__main__":
     parser.add_argument("-cwd", "--current_working_directory", type=str, default=os.getcwd(),
                         help="The directory where the final output file should be placed.")
     parser.add_argument("-td", "--target_directory", type=str, default=os.getcwd(), help="The directory where the data files are located. If not specified, the current working directory will be used.")
+    parser.add_argument("-out", "--output_file", type=str, default="output.csv", help="The name of the output file. Default is 'output.csv'.")
     args = parser.parse_args()
+
 
     main()
     shutil.move("output.csv", args.current_working_directory + "/output.csv")

@@ -1,5 +1,5 @@
 import PyQt6
-from PyQt6.QtWidgets import QApplication, QMainWindow, QPushButton, QVBoxLayout, QWidget
+from PyQt6.QtWidgets import QApplication, QMainWindow, QPushButton, QVBoxLayout, QWidget, QLineEdit
 import subprocess
 
 class MainWindow(QMainWindow):
@@ -25,12 +25,15 @@ class MainWindow(QMainWindow):
         from PyQt6.QtWidgets import QLabel
 
         #save the labels in class for later use
-        self.label_data = QLabel("Output Directory:")
+        self.label_data = QLabel("Data Directory:")
         self.label_data.setStyleSheet("font-weight: bold;")
         self.label_data.frameRect = True
 
         self.label_output = QLabel("Output Directory:")
         self.label_output.setStyleSheet("font-weight: bold;")
+
+        self.text_input = QLineEdit()
+        self.text_input.setPlaceholderText("Enter your text here...")
 
         button_output = QPushButton("Select Output Directory")
         button_output.clicked.connect(self.on_button_output_click)
@@ -43,6 +46,7 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.label_data)
         layout.addWidget(button_output)
         layout.addWidget(self.label_output)
+        layout.addWidget(self.text_input)
         layout.addWidget(button_run_program)
 
         layout.addLayout(layout1)
@@ -74,7 +78,10 @@ class MainWindow(QMainWindow):
             print("Please select both input and output directories.")
             return
         
-        p = subprocess.Popen(["python", "DataExtraction.py","-td", self.target_directory,"-cwd", self.output_directory])
+        output_filename = self.text_input.text() or "output.csv"
+        if not output_filename.endswith(".csv"):
+            output_filename += ".csv"
+        p = subprocess.Popen(["python", "DataExtraction.py","-td", self.target_directory,"-cwd", self.output_directory, "-out", output_filename],)
         
         
         # Here you would call the main function from DataExtraction.py
