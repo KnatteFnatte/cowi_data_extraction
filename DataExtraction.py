@@ -73,7 +73,7 @@ class Datafile:
         # Read the CSV file using pandas
         # We assume the CSV file has a header row, so we skip the first row
         df = pd.read_csv(self.filename, sep=",", header=1)
-
+        
         # Create a list to hold the extracted data
         extracted_data = []
         for columns in df:
@@ -156,6 +156,7 @@ def main():
     # Get the if the target directory contains any csv files
     file_list = get_filenames(os.getcwd())
     csv_file = csv.writer(open(args.output_file, "w", newline=""))
+    csv_file2 = csv.writer(open("max_forces"+args.output_file, "w", newline=""))
     csv_file.writerow("Clay type, Sand content, Water content, Lime content, Curing, Drying, Temperature, CO2, Recompression, New WC, Mean_Max_Force, Standard Deviation".split(", "))  
 
 
@@ -174,11 +175,15 @@ def main():
             #print(datafile)
             output = datafile.extract_data()
             csv_file.writerow(output)
+            csvfile2output = [datafile.filename]
+            for i in datafile.max_forces:
+                csvfile2output.append(i)
+            csv_file2.writerow(csvfile2output)
         except ValueError as e:
             print(f"Error processing file {file}: {e}")
+        print(f"Processed file: {file} with avg max force: {datafile.avg_max_force:.3f} kN and avg max displacement: {datafile.avg_max_displacement:.3f} mm")
 
-    print("Data extraction complete. Output written to output.csv")
-    input("Press Enter to continue or Ctrl+C to exit.")
+    print("Data extraction complete. Output written to" + args.output_file + " and max_forces_" + args.output_file)
     return
 
 if __name__ == "__main__":
@@ -194,8 +199,16 @@ if __name__ == "__main__":
     parser.add_argument("-td", "--target_directory", type=str, default=os.getcwd(), help="The directory where the data files are located. If not specified, the current working directory will be used.")
     parser.add_argument("-out", "--output_file", type=str, default="output.csv", help="The name of the output file. Default is 'output.csv'.")
     args = parser.parse_args()
+    if args.output_file.endswith(".csv") is False:
+        args.output_file = args.output_file + ".csv"
 
 
     main()
-    shutil.move("output.csv", args.current_working_directory + "/output.csv")
+
+    shutil.move(args.target_directory+"/"+args.output_file, args.current_working_directory + "/" + args.output_file)
+    print("Succesfully moved "+args.output_file+" to "+ args.current_working_directory)
+    shutil.move( args.target_directory+"/"+"max_forces" +args.output_file, args.current_working_directory + "/max_forces_" + args.output_file)
+    print("Succesfully moved max_forces_" + args.output_file + " to " + args.current_working_directory)
+    input("Program successfully completed. Press Enter to exit.")
+    
     
