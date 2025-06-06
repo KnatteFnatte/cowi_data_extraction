@@ -1,4 +1,14 @@
 # cowi_data_extraction
+
+###### Important ######
+the pre-requisites for running this program is having python installed, and pip installing the packages from requirements. To do this, run the following command from the terminal (make sure to be in the correct working directory, or requirements.txt cannot be found):
+
+        python -m pip install -r requirements.txt
+
+or
+
+        python3 -m pip install -r requirements.txt
+
 Code for extracting relevant data from cowi clay experiments
 
 The run.bat can be run on windows computers, which allows specification of target directory, output directory and filename.
