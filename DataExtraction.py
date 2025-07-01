@@ -28,6 +28,7 @@ class Datafile:
         self.avg_max_displacement = None
         self.avg_max_force = None
         self.lime_content = None
+        self.diameter = 0.06 #meter
 
         if "L" in name_parts[3]:
             self.lime_content = name_parts[3]
@@ -52,7 +53,7 @@ class Datafile:
 
                 if "Reco" in i:
                     self.recompression = True
-                    self.new_wc = name_parts[4][6:]
+                    self.new_wc = i[6:]
 
                 if "Wet" in i:
                     self.testtype = "WetCompression"
@@ -64,7 +65,7 @@ class Datafile:
         return
     def __str__(self):
         """Return a string representation of the Datafile object. It is named __str__ so that if the class instance is printed, the relevant data will be supplied"""
-        return f"Clay Type: {self.clay_type}, Sand Content: {self.sand_content}, Water Content: {self.water_content}, Lime Content: {self.lime_content}, Curing: {self.curing}, Drying: {self.drying}, Temperature: {self.temperature}, CO2: {self.Co2}, Recompression: {self.recompression}, New WC: {self.new_wc}. avg_max_force: {self.avg_max_force}, avg_max_displacement: {self.avg_max_displacement}"
+        return f"Clay Type: {self.clay_type}, Sand Content: {self.sand_content}, Water Content: {self.water_content}, Lime Content: {self.lime_content}, Curing: {self.curing}, Drying: {self.drying}, Temperature: {self.temperature}, CO2: {self.Co2}, Recompression: {self.recompression}, New WC: {self.new_wc}. avg_max_force: {self.avg_max_force}, avg_max_displacement: {self.avg_max_displacement}, Pressure: {self.mean_pressure}, Pressure Std: {self.pressure_std}, Force Std: {self.force_std}"
     
     def extract_data(self):
         """Extract the max force value and corresponding displacements from the CSV file. each file will have columnnumbers/3 values, as they should be concatenated laterally from the Instrom machine."""
@@ -98,9 +99,15 @@ class Datafile:
         self.max_displacements = [data[1] for data in extracted_data]
         self.avg_max_force = np.mean(self.max_forces)
         self.avg_max_displacement = np.mean(self.max_displacements)
+        nparray_max_forces = np.array(self.max_forces)
+        #Calculate the pressure on the sample
+        self.pressure = nparray_max_forces / (np.pi * (self.diameter/2)**2)/10**3  # Pressure in kN/m^2 which is equivalent to kPa
+        self.mean_pressure = np.mean(self.pressure)
+        self.pressure_std = np.std(self.pressure)
+        
         self.force_std = np.std(self.max_forces)
         # Return the values of the class as a string
-        output = str(f"{self.clay_type}, {self.sand_content}, {self.water_content}, {self.lime_content}, {self.curing}, {self.drying}, {self.temperature}, {self.Co2}, {self.recompression}, {self.new_wc}, {self.avg_max_force}, {self.force_std}")
+        output = str(f"{self.clay_type}, {self.sand_content}, {self.water_content}, {self.lime_content}, {self.curing}, {self.drying}, {self.temperature}, {self.Co2}, {self.recompression}, {self.new_wc}, {self.avg_max_force}, {self.force_std}, {self.mean_pressure}, {self.pressure_std}")
         return output.split(", ")
 
 def get_filenames(directory):
@@ -157,7 +164,7 @@ def main():
     file_list = get_filenames(os.getcwd())
     csv_file = csv.writer(open(args.output_file, "w", newline=""))
     csv_file2 = csv.writer(open("max_forces"+args.output_file, "w", newline=""))
-    csv_file.writerow("Clay type, Sand content, Water content, Lime content, Curing, Drying, Temperature, CO2, Recompression, New WC, Mean_Max_Force, Standard Deviation".split(", "))  
+    csv_file.writerow("Clay type, Sand content, Water content, Lime content, Curing, Drying, Temperature, CO2, Recompression, New WC, Mean_Max_Force [kN], Std force [kN], Pressure [MPa], Std Pressure [MPa]".split(", "))  
 
 
     if file_list == []:
@@ -178,6 +185,10 @@ def main():
             csvfile2output = [datafile.filename]
             for i in datafile.max_forces:
                 csvfile2output.append(i)
+            if pressure:
+                csvfile2output.append("Pressure")
+                for i in datafile.pressure:
+                    csvfile2output.append(i)
             csv_file2.writerow(csvfile2output)
         except ValueError as e:
             print(f"Error processing file {file}: {e}")
@@ -190,6 +201,7 @@ if __name__ == "__main__":
     # Run the main function if this script is executed directly
     # This allows the script to be imported without executing main()
     # This is useful if we want to check specific files in a notebook or another script
+    pressure = False   #Set to true if you want the calculated pressures in max_forces_output.csv
 
     # Add argument flags from the command line to add the possibility of changing directory
     # This allows the user to specify the current working directory where the data files are located
