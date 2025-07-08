@@ -35,6 +35,7 @@ class Datafile:
             self.lime_content = name_parts[3]
             del name_parts[3]
 
+
         if "Cu" in name_parts[3]:
             self.curing = True
         else:
@@ -58,6 +59,26 @@ class Datafile:
 
                 if "Wet" in i:
                     self.testtype = "WetCompression"
+        
+        naming_convention = {'Cu':'S', 'Dr':'D', 'L5':'L5', 'Co2':'C1', 'Reco':'Reco', 'Wet':'W'}
+        # Convert the clay type to a single letter code
+        if self.curing:
+            self.name = 'S'
+        else:
+            self.name = 'D'
+        
+        self.name += str(self.temperature[1:])
+
+        if self.lime_content == None:
+            pass
+        else:
+            self.name += self.lime_content
+        
+        if self.Co2:
+            self.name += "C1"
+
+        if self.recompression:
+            self.name += "_Reco"
 
             
 
@@ -128,8 +149,11 @@ class Datafile:
                 
             elif len(new_df.columns) == 3:
                 new_df.columns = ["Time (s)","Displacement (mm)", "Force (kN)"]
+            
+            # Make sure displacement starts at 0
+            new_df["Displacement (mm)"] = new_df["Displacement (mm)"] - new_df["Displacement (mm)"].iloc[0]
             dfarray.append(new_df)
-            # Plot the data
+
         return dfarray
 
 def get_filenames(directory):
@@ -184,7 +208,7 @@ def merge_output_files(output_file, input_files):
     merged_df.to_csv(output_file, index=False, sep=",", header=True)
     return merged_df
 
-def main2(directory,subplotsax1, subplotsax2):
+def main2(directory,subplotsaxes=(9,2), figsize=(20,20), stress_strain=False, savefig=False, figname="COWI Test Plots"):
     """This function is run manually through jupyter notebook to generate plots"""
     os.chdir(directory)
     cwd = directory
@@ -195,12 +219,53 @@ def main2(directory,subplotsax1, subplotsax2):
     if file_list == []:
         print("No csv files found in the current working directory.")
         return
+    
     #Extract the data from the files
     print(f"Found {len(file_list)} files in the target directory. Processing...")
 
-    fig, ax = plt.subplots(subplotsax1,subplotsax2, figsize=(20, 20))
+    # Create dictionary for subplot orientation
+    subplot_index = {
+        "S1": 0,
+        "S23": 0,
+        "S2": 1,
+        "S40": 1,
+        "D1": 2,
+        "D23": 2,
+        "S1L5": 3,
+        "S23L5": 3,
+        "S2L5": 4,
+        "S40L5": 4,
+        "D1L5": 5,
+        "D23L5": 5,
+        "S1L5C1": 6,
+        "S23L5C1": 6,
+        "S2L5C1": 7,
+        "S40L5C1": 7,
+        "D1L5C1": 8,
+        "D23L5C1": 8,
+        "S1_Reco": 9,
+        "S23_Reco": 9,
+        "S2_Reco": 10,
+        "S40_Reco": 10,
+        "D1_Reco": 11,
+        "D23_Reco": 11,
+        "S1L5_Reco": 12,
+        "S23L5_Reco": 12,
+        "S2L5_Reco": 13,
+        "S40L5_Reco": 13,
+        "D1L5_Reco": 14,
+        "D23L5_Reco": 14,
+        "S1L5C1_Reco": 15,
+        "S23L5C1_Reco": 15,
+        "S2L5C1_Reco": 16,
+        "S40L5C1_Reco": 16,
+        "D1L5C1_Reco": 17,
+        "D23L5C1_Reco": 17,
+    }
+
+    fig, ax = plt.subplots(subplotsaxes[0],subplotsaxes[1], figsize=figsize)
     ax = ax.flatten()
-    index = 0
+    max_force_val = 0
     for file in file_list:
         if file == "output.csv":
             print("WARNING: output.csv is in the target directory. The file will be overwritten.")
@@ -210,16 +275,57 @@ def main2(directory,subplotsax1, subplotsax2):
             datafile = Datafile(file)
             #print(datafile)
             df = datafile.plot_data()
-            for i in df:
-                 ax[index].plot(i["Displacement (mm)"], i["Force (kN)"])
-            ax[index].set_xlabel("Displacement (mm)")
-            ax[index].set_ylabel("Force (kN)")
 
+            # Determine the subplot index based on the naming convention
+            if datafile.name in subplot_index:
+                index = subplot_index[datafile.name]
+            else:
+                print(f"Warning: No subplot index found for {datafile.name}. Skipping this file.")
+                continue
+
+            for j,i in enumerate(df):
+                if max(i["Force (kN)"]) > max_force_val:
+                    max_force_val = max(i["Force (kN)"])
+                if stress_strain:
+                    column_height = 60 #mm
+                    column_diameter = 60 #mm
+                    surface_area = np.pi * (column_diameter/2*10**(-3))**2
+                    stress = i["Force (kN)"] / surface_area*10**(-3)  # Convert to MPa
+                    strain = i["Displacement (mm)"] / (column_height)*100  # Convert to strain in %
+                    ax[index].plot(strain, stress, label = j)
+                    ax[index].set_xlabel("Strain [%]")
+                    ax[index].set_ylabel("Stress [MPa]")
+
+                    if index%2 != 0:
+                        ax[index].yaxis.tick_right()
+                        ax[index].yaxis.set_label_position("right")
+                    
+                else:
+                    ax[index].plot(i["Displacement [mm]"], i["Force [kN]"])
+                    ax[index].set_xlabel("Displacement [mm]")
+                    ax[index].set_ylabel("Force [kN]")
+                    ax[index].set_title(datafile.name)
         except ValueError as e:
             print(f"Error processing file {file}: {e}")
-        index += 1
 
+    if stress_strain:
+        max_force_val = max_force_val / surface_area*10**(-3)  # Convert to MPa
+    keylist = [key for key in subplot_index]
+    for j,i in enumerate(ax):
+        i.set_title(keylist[j*2+1], fontsize=10)
+        i.legend(loc='upper right', fontsize='small')
+        i.grid(True)
+        if max_force_val > 0:
+            i.set_ylim(0, max_force_val*1.1)
+
+        
+
+    
+    fig.suptitle(figname, fontsize=16, y=1.0)
     fig.tight_layout()
+    if savefig:
+        fig.savefig(figname, dpi='figure', bbox_inches='tight')
+        print("Saved figure as compression_test_plots.png")
     plt.show()
     
 
