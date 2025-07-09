@@ -13,13 +13,21 @@ from io import StringIO
 
 class Datafile:
     def __init__(self, filename):
-        """Henter parametre for testserien ud fra filnavnet.
-        Filnavnet skal have formatet: lertype_sandindhold_vandindhold_evtlimeindhold_curing/drying-temperature[Co2]_[Reco-new_wc]"""
+        """Tager navnet på en fil og genererer et objekt der indeholder informationen om serien ud fra navnet.\n
+        Filnavnet skal have formatet: lertype_sandindhold_vandindhold_evtlimeindhold_curing/drying-temperature[Co2]_[Reco-new_wc]\n
+        Eksempel: ERS_S15_W15.8_L5_Cu28-C23_Reco-17.4\n
+        Filnavnet skal have et '_' i sig, som adskiller navnet og filendelsen. Filendelsen skal være .csv eller .txt.\n
+        Classen har 2 hovedfunktioner: extract_data() og plot_data().\n
+        extract_data() udtrækker de relevante data såsom max_force fra filen og gemmer dem i classens attributter.\n
+        plot_data() tager rådataet fra de dataframes der kan dannes fra csv'en og returnerer det i et array så det kan plottes.\n
+        """
         self.filename = filename
         if "_" not in filename:
             raise ValueError("Filename must contain an underscore '_' to separate the name and the extension.")
         filename = filename[:-4]  # Remove the file extension
         name_parts = filename.split("_")
+
+        #Gem karakteristika for testen i attributter for classen
         self.clay_type = name_parts[0]
         self.sand_content = name_parts[1]
         self.water_content = name_parts[2]
@@ -29,7 +37,7 @@ class Datafile:
         self.avg_max_displacement = None
         self.avg_max_force = None
         self.lime_content = None
-        self.diameter = 0.06 #meter
+        self.diameter = 0.06 #meter - DETTE BETYDER AT LIGE NU BENYTTES MÅLINGEN PÅ DIAMETER IKKE
 
         if "L" in name_parts[3]:
             self.lime_content = name_parts[3]
@@ -47,7 +55,7 @@ class Datafile:
             self.drying = False
         self.temperature = name_parts[3][5:]
 
-        #Add here any optional flags in naming convention (landerslev for example has Calcium which Egernsund does not)
+        #Add here any optional flags in naming convention (landerslev for example has Calcium which Egernsund does not, this if statement could be added easily, and so this is where we should add stuff like that)
         if len(name_parts) > 4:
             for i in name_parts[4:]:
                 if i == "Co2":
@@ -60,8 +68,10 @@ class Datafile:
                 if "Wet" in i:
                     self.testtype = "WetCompression"
         
+        #Nameing convention benyttes lige nu ikke da værdierne var gemt som booleans og ikke som strenge i classen, men jeg lader den være her hvis det skal bruges på et tidspunkt.
         naming_convention = {'Cu':'S', 'Dr':'D', 'L5':'L5', 'Co2':'C1', 'Reco':'Reco', 'Wet':'W'}
-        # Convert the clay type to a single letter code
+
+        # gem navnet på serien i classen, så det kan bruges senere til at plotte og sætte rækkefølgen af dataet.
         if self.curing:
             self.name = 'S'
         else:
@@ -80,19 +90,25 @@ class Datafile:
         if self.recompression:
             self.name += "_Reco"
 
-            
-
-        
-
+        #Returner intet, da classen er bygget til at blive brugt som et objekt der indeholder data om en serie, og ikke som en funktion der returnerer noget.
         return
+    
     def __str__(self):
         """Return a string representation of the Datafile object. It is named __str__ so that if the class instance is printed, the relevant data will be supplied"""
         return f"Clay Type: {self.clay_type}, Sand Content: {self.sand_content}, Water Content: {self.water_content}, Lime Content: {self.lime_content}, Curing: {self.curing}, Drying: {self.drying}, Temperature: {self.temperature}, CO2: {self.Co2}, Recompression: {self.recompression}, New WC: {self.new_wc}. avg_max_force: {self.avg_max_force}, avg_max_displacement: {self.avg_max_displacement}, Pressure: {self.mean_pressure}, Pressure Std: {self.pressure_std}, Force Std: {self.force_std}"
     
     def extract_data(self):
-        """Extract the max force value and corresponding displacements from the CSV file. each file will have columnnumbers/3 values, as they should be concatenated laterally from the Instrom machine."""
+        """Trækker maxværdierne for datasættene ud. Funktionen er bygget med antagelsen om at csv-filen består af datasæt af 3-4 kolonner, hvor hver kolonne er adskilt af ; og hvert datasæt er adskilt af komma. \n
+        eksempelvis 0;0;0;0, 1;1;1;1, 2;2;2;2 \n
+        Returnerer alt værdien fra Classen i en liste, og max forces, displacements, gennemsnittet af max forces og standardafvigelsen gemmes i classens attributter.\n
+        Også trykket bliver gemt, det er antaget at alle prøver har en diameter på 60 mm. \n
+        !!!\n
+        Der mangler at implementere for splitting at vi i stedet skal bruge længdetrykket i stedet for arealttrykket på toppen.\n
+        !!!"""
+        # Check if the file exists
         if not os.path.isfile(self.filename):
             raise ValueError(f"The file {self.filename} does not exist.")
+        
         # Read the CSV file using pandas
         # We assume the CSV file has a header row, so we skip the first row
         df = pd.read_csv(self.filename, sep=",", header=1)
@@ -103,50 +119,59 @@ class Datafile:
             # Extract the relevant columns for this set of data
 
             StringData = StringIO(df[columns].to_string(index = False, header = False))
+
             # Read the CSV data from the string
             new_df = pd.read_csv(StringData, header = 1, sep=";")
+
             # Rename the columns for clarity
             if len(new_df.columns) == 4:
                 new_df.columns = ["Time (s)", "Displacement (mm)", "Force (kN)", "Unused"]
             elif len(new_df.columns) == 3:
                 new_df.columns = ["Time (s)","Displacement (mm)", "Force (kN)"]
+
             # Get the maximum force value and its corresponding displacement
             max_force = new_df["Force (kN)"].max()
             max_displacement = new_df.loc[new_df["Force (kN)"] == max_force, "Displacement (mm)"].values[0]
+
             # Append the extracted data to the list
             extracted_data.append((max_force, max_displacement))
 
-        # If we have multiple sets of data, we can average the max forces and displacements
+        # If we have multiple sets of data, we can average the max forces and displacements - det virker stadig selv hvis der kun er et datasæt, så er gennemsnittet bare trivielt. standardafvigelsen er dog ikke veldefineret i det tilfælde.
         self.max_forces = [data[0] for data in extracted_data]
         self.max_displacements = [data[1] for data in extracted_data]
         self.avg_max_force = np.mean(self.max_forces)
         self.avg_max_displacement = np.mean(self.max_displacements)
         nparray_max_forces = np.array(self.max_forces)
+
         #Calculate the pressure on the sample
         self.pressure = nparray_max_forces / (np.pi * (self.diameter/2)**2)/10**3  # Pressure in kN/m^2 which is equivalent to kPa
         self.mean_pressure = np.mean(self.pressure)
         self.pressure_std = np.std(self.pressure)
-        
         self.force_std = np.std(self.max_forces)
+
         # Return the values of the class as a string
         output = str(f"{self.clay_type}, {self.sand_content}, {self.water_content}, {self.lime_content}, {self.curing}, {self.drying}, {self.temperature}, {self.Co2}, {self.recompression}, {self.new_wc}, {self.avg_max_force}, {self.force_std}, {self.mean_pressure}, {self.pressure_std}")
         return output.split(", ")
     
     def plot_data(self):
-        """Plot the data from the CSV file."""
+        """Trækker dataet ud af CSV filen men returnerer en liste af de adskilte dataframes.\n
+        Altså gør den det samme som starten af extract_data() men laver intet behandling på dataet.\n
+        Dataet plottes uden for funktionens scope, så det kan bruges til at plotte dataet i et subplot.\n"""
         # Read the CSV file using pandas
         df = pd.read_csv(self.filename, sep=",", header=1)
         dfarray = []
+
         # Create a list to hold the extracted data
         for columns in df:
             # Extract the relevant columns for this set of data
             StringData = StringIO(df[columns].to_string(index = False, header = False))
+
             # Read the CSV data from the string
             new_df = pd.read_csv(StringData, header = 1, sep=";")
+
             # Rename the columns for clarity
             if len(new_df.columns) == 4:
                 new_df.columns = ["Time (s)", "Displacement (mm)", "Force (kN)", "Unused"]
-                
             elif len(new_df.columns) == 3:
                 new_df.columns = ["Time (s)","Displacement (mm)", "Force (kN)"]
             
@@ -171,7 +196,10 @@ def get_directories(directory):
 #Function for collecting data outputs from single test (Instrom creates multiple CSV files - we only want one)
 
 def collect_csv(directory):
-    """Take a folder of csv files and concatenate them laterally (designed for csv files with 3 columns)"""
+    """Take a folder of csv files and concatenate them laterally (designed for csv files that are semicolon separated, as they will be concatenated laterally with comma seperation)\n
+    The outputfile is saved in the argument directory, and it is assumed all the files have the same name but then _1, _2, etc. appended to the end of the filename.\n
+    The output file is named after the first file in the directory, with the file extension .csv\n
+    Output file is saved in the current working directory, so make sure to change the directory before calling this function.\n"""
     olddir = os.getcwd()
     os.chdir(directory)
     #First access all the filenames
@@ -180,11 +208,13 @@ def collect_csv(directory):
     filearr = [f for f in os.listdir(directory) if (os.path.isfile(os.path.join(directory, f)) and f.endswith('.csv') or os.path.isfile(os.path.join(directory, f)) and f.endswith('.txt'))]
     #Remove file extension and give name to output file
     final_filename = filearr[0][:-4].split("_")
-    print(final_filename)
+    
+    #The instron machine appends _1, _2, etc. to the end of the filename, so we need to remove those. As there is no entries that are purely numbers in the naming convention, we can remove all entries that are purely a number
     final_filename = [i for i in final_filename if not i.isdigit()]
     final_filename = "_".join(final_filename)
     final_filename = final_filename + ".csv"
-    #We want to concatenate all the data laterally, which is lengthy without pandas.
+
+    #We want to concatenate all the data laterally.
     print(final_filename)
     masterdf = pd.read_csv(filearr[0], delimiter=",")
     for i in filearr[1:]:
@@ -192,14 +222,14 @@ def collect_csv(directory):
         masterdf = pd.concat([masterdf, tempdf], axis=1)
     
     os.chdir(olddir)
-    print(os.getcwd())
     masterdf.to_csv(final_filename, index=False, sep=",", header=True)
-    print(os.getcwd())
+
 
 
 
 def merge_output_files(output_file, input_files):
-    """Merge multiple output files into a single output file."""
+    """Merge multiple output files into a single output file.\n
+    Jeg er lidt usikker på om den her funktion nogensinde bruges? Det kan være den bruges i notebook uden jeg lige kan huske hvordan."""
     dataframes = []
     for file in input_files:
         df = pd.read_csv(file, sep=",", header=0, names=["Clay type", "Sand content", "Water content", "Lime content", "Curing", "Drying", "Temperature", "CO2", "Recompression", "New WC"])
@@ -208,9 +238,18 @@ def merge_output_files(output_file, input_files):
     merged_df.to_csv(output_file, index=False, sep=",", header=True)
     return merged_df
 
-def main2(directory,subplotsaxes=(9,2), figsize=(20,20), stress_strain=False, savefig=False, figname="COWI Test Plots"):
-    """This function is run manually through jupyter notebook to generate plots"""
+def main2(directory,subplotsaxes=(9,2), figsize=(20,20), stress_strain=False, savefig=False, figname="COWI Test Plots", naming_convention=1, show_plot=True):
+    """This function is run manually through jupyter notebook to generate plots.\n
+    It takes a directory as an argument, with the collected csv files in it. It can only plot the data if the csv files are in the correct format, either being raw data or being the concatenated data from the collect_csv function.\n
+    The function will plot the data in subplots, with the subplot axes specified by the subplotsaxes argument. The default is set to (9,2) as we have 18 series in Egernsund, so all the series can be plotted in a 2x9 grid.\n
+    The function takes arguments: figsize [tuple/default=(20,20)], subplotsaxes [tuple/default=(9,2)], stress_strain [bool/default=False], savefig [bool/default=False], figname [str/default=COWI Test Plots], naming_convention [int/default=1].\n
+    figsize is the size of the figure, subplotsaxes is the number of subplots in the x and y direction, stress_strain is a boolean that determines if the data should be plotted as stress-strain or force-displacement, savefig is a boolean that determines if the figure should be saved as a png file, and figname is the name of the figure.
+    Naming convention should be either 0 or 1, where 0 will make the names as S1L5C1 and 1 will make the names as S23L5C1.\n
+    """
+    
+    # Change the current working directory to the specified directory
     os.chdir(directory)
+    #This line is technically redundant as the argument could be passed directly to the function, but it is kept for clarity.
     cwd = directory
     
     # Get the if the target directory contains any csv files
@@ -223,7 +262,7 @@ def main2(directory,subplotsaxes=(9,2), figsize=(20,20), stress_strain=False, sa
     #Extract the data from the files
     print(f"Found {len(file_list)} files in the target directory. Processing...")
 
-    # Create dictionary for subplot orientation
+    # Create dictionary for subplot orientation. The naming convention is the one used for Egernsund, the sseries names are doubled because 
     subplot_index = {
         "S1": 0,
         "S23": 0,
@@ -301,10 +340,13 @@ def main2(directory,subplotsaxes=(9,2), figsize=(20,20), stress_strain=False, sa
                         ax[index].yaxis.set_label_position("right")
                     
                 else:
-                    ax[index].plot(i["Displacement [mm]"], i["Force [kN]"])
-                    ax[index].set_xlabel("Displacement [mm]")
-                    ax[index].set_ylabel("Force [kN]")
-                    ax[index].set_title(datafile.name)
+                    ax[index].plot(i["Displacement (mm)"], i["Force (kN)"])
+                    ax[index].set_xlabel("Displacement (mm)")
+                    ax[index].set_ylabel("Force (kN)")
+                    
+                    if index%2 != 0:
+                        ax[index].yaxis.tick_right()
+                        ax[index].yaxis.set_label_position("right")
         except ValueError as e:
             print(f"Error processing file {file}: {e}")
 
@@ -312,7 +354,12 @@ def main2(directory,subplotsaxes=(9,2), figsize=(20,20), stress_strain=False, sa
         max_force_val = max_force_val / surface_area*10**(-3)  # Convert to MPa
     keylist = [key for key in subplot_index]
     for j,i in enumerate(ax):
-        i.set_title(keylist[j*2+1], fontsize=10)
+        if naming_convention == 0:
+            i.set_title(keylist[j*2], fontsize=10)
+        elif naming_convention == 1:
+            i.set_title(keylist[j*2+1], fontsize=10)
+        else:
+            print("Invalid naming convention. Please use 0 or 1.")
         i.legend(loc='upper right', fontsize='small')
         i.grid(True)
         if max_force_val > 0:
@@ -326,14 +373,20 @@ def main2(directory,subplotsaxes=(9,2), figsize=(20,20), stress_strain=False, sa
     if savefig:
         fig.savefig(figname, dpi='figure', bbox_inches='tight')
         print("Saved figure as compression_test_plots.png")
-    plt.show()
+    if show_plot:
+        plt.show()
     
 
 
 
 
 def main():
-    """Test the Datafile class."""
+    """The function that is run from the run.bat script.\n
+    It takes the current working directory and the target directory as arguments, and then processes all the csv files in the target directory.\n
+    The output is written to a csv file in the current working directory, with the name specified by the user. If no name is specified, the default is output.csv.\n
+    The output file contains the following columns: Clay type, Sand content, Water content, Lime content, Curing, Drying, Temperature, CO2, Recompression, New WC, Mean_Max_Force [kN], Std force [kN], Pressure [MPa], Std Pressure [MPa].\n
+    The function also creates a second csv file with the max forces for each test, with the name max_forces_output.csv.\n
+    The second csv file only has full name of the test (maybe this should be changed to the naming convention?) and then the max forces for each test, and if pressure is set to True, it will also include the pressure values for each test.\n"""
     #Change cwd to the argument passed from the command line
     os.chdir(args.target_directory)
     
