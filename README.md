@@ -9,6 +9,8 @@ or
 
         python3 -m pip install -r requirements.txt
 
+I recommend starting in the Eksempel.ipynb for a walkthrough on how to crunch the data, and if any edgecases are found where it doesn't this can be added.
+
 Code for extracting relevant data from cowi clay experiments
 
 The run.bat can be run on windows computers, which allows specification of target directory, output directory and filename.
