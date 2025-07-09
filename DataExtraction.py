@@ -238,7 +238,7 @@ def merge_output_files(output_file, input_files):
     merged_df.to_csv(output_file, index=False, sep=",", header=True)
     return merged_df
 
-def main2(directory,subplotsaxes=(9,2), figsize=(20,20), stress_strain=False, savefig=False, figname="COWI Test Plots", naming_convention=1, show_plot=True):
+def main2(directory,subplotsaxes=(9,2), figsize=(20,20), stress_strain=False, savefig=False, figname="COWI Test Plots", naming_convention=1, show_plot=True, lin_reg=False, min_val_reg=0.1, mid_val_reg=0.4, max_val_reg=0.8):
     """This function is run manually through jupyter notebook to generate plots.\n
     It takes a directory as an argument, with the collected csv files in it. It can only plot the data if the csv files are in the correct format, either being raw data or being the concatenated data from the collect_csv function.\n
     The function will plot the data in subplots, with the subplot axes specified by the subplotsaxes argument. The default is set to (9,2) as we have 18 series in Egernsund, so all the series can be plotted in a 2x9 grid.\n
@@ -305,7 +305,14 @@ def main2(directory,subplotsaxes=(9,2), figsize=(20,20), stress_strain=False, sa
     fig, ax = plt.subplots(subplotsaxes[0],subplotsaxes[1], figsize=figsize)
     ax = ax.flatten()
     max_force_val = 0
+    if lin_reg:
+        coeffs=[]
     for file in file_list:
+        if lin_reg:
+            coeffs_list1_slope = []
+            coeffs_list1_intersect = []
+            coeffs_list2_slope = []
+            coeffs_list2_intersect = []
         if file == "output.csv":
             print("WARNING: output.csv is in the target directory. The file will be overwritten.")
             input("Press Enter to continue or Ctrl+C to exit.")
@@ -347,6 +354,54 @@ def main2(directory,subplotsaxes=(9,2), figsize=(20,20), stress_strain=False, sa
                     if index%2 != 0:
                         ax[index].yaxis.tick_right()
                         ax[index].yaxis.set_label_position("right")
+                if lin_reg == True:
+                    try:
+                        if stress_strain:
+                            # Perform linear regression on the incline of the data at two intervals (default 10%-40% and 40%-80% of the max force)
+                            max_stress = stress.max()
+                            # Find the index in the dataframe where the force is 10% of the max force
+                            start_index = i.index[stress >= min_val_reg * max_stress][0]
+                            # Find the index in the dataframe where the force is 40% of the max force
+                            mid_index = i.index[stress >= mid_val_reg * max_stress][0]
+                            # Find the index in the dataframe where the force is 80% of the max force
+                            end_index = i.index[stress >= max_val_reg * max_stress][0]
+                            # Perform linear regression on the first interval (10%-40%)
+                            x1 = strain[start_index:mid_index]
+                            y1 = stress[start_index:mid_index]
+                            coeffs1 = np.polyfit(x1, y1, 1)
+                            # Perform linear regression on the second interval (40%-80%)
+                            x2 = strain[mid_index:end_index]
+                            y2 = stress[mid_index:end_index]
+                            coeffs2 = np.polyfit(x2, y2, 1)
+                        else:
+                            # Perform linear regression on the incline of the data at two intervals (default 10%-40% and 40%-80% of the max force)
+                            max_force = i["Force (kN)"].max()
+                            # Find the index in the dataframe where the force is 10% of the max force
+                            start_index = i.index[i["Force (kN)"] >= min_val_reg * max_force][0]
+                            # Find the index in the dataframe where the force is 40% of the max force
+                            mid_index = i.index[i["Force (kN)"] >= mid_val_reg * max_force][0]
+                            # Find the index in the dataframe where the force is 80% of the max force
+                            end_index = i.index[i["Force (kN)"] >= max_val_reg * max_force][0]
+                            # Perform linear regression on the first interval (10%-40%)
+                            x1 = i["Displacement (mm)"][start_index:mid_index]
+                            y1 = i["Force (kN)"][start_index:mid_index]
+                            coeffs1 = np.polyfit(x1, y1, 1)
+                            # Perform linear regression on the second interval (40%-80%)
+                            x2 = i["Displacement (mm)"][mid_index:end_index]
+                            y2 = i["Force (kN)"][mid_index:end_index]
+                            coeffs2 = np.polyfit(x2, y2, 1)
+                        # Plot the linear regression lines
+                        ax[index].plot(x1, np.polyval(coeffs1, x1), color='orange', linestyle='--')
+                        ax[index].plot(x2, np.polyval(coeffs2, x2), color='red', linestyle='--')
+                        coeffs_list1_slope.append(coeffs1[0])
+                        coeffs_list1_intersect.append(coeffs1[1])
+                        coeffs_list2_slope.append(coeffs2[0])
+                        coeffs_list2_intersect.append(coeffs2[1])
+                        coeffs.append([f"Coefficients for initial regression of {datafile.name}: a={np.mean(coeffs_list1_slope):.3f} ± {np.std(coeffs_list1_slope):.3f}, b={np.mean(coeffs_list1_intersect):.3f} ± {np.std(coeffs_list1_intersect):.3f}",f"Coefficients for later regression of {datafile.name}: a={np.mean(coeffs_list2_slope):.3f} ± {np.std(coeffs_list2_slope):.3f}, b={np.mean(coeffs_list2_intersect):.3f} ± {np.std(coeffs_list2_intersect):.3f}"])
+                    except:
+                        print(f"Linear regression failed for file {file}.")
+                        continue
+            
         except ValueError as e:
             print(f"Error processing file {file}: {e}")
 
@@ -373,8 +428,13 @@ def main2(directory,subplotsaxes=(9,2), figsize=(20,20), stress_strain=False, sa
     if savefig:
         fig.savefig(figname, dpi='figure', bbox_inches='tight')
         print("Saved figure as compression_test_plots.png")
+    if lin_reg:
+        for i in coeffs:
+            print(i[0],"\n",i[1],"\n")
+
     if show_plot:
         plt.show()
+    
     
 
 
