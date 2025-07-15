@@ -307,6 +307,8 @@ def main2(directory,subplotsaxes=(9,2), figsize=(20,20), stress_strain=False, sa
     max_force_val = 0
     if lin_reg:
         coeffs=[]
+        maxxlist = np.zeros(18)
+        maxylist = np.zeros(18)
     for file in file_list:
         if lin_reg:
             coeffs_list1_slope = []
@@ -330,6 +332,7 @@ def main2(directory,subplotsaxes=(9,2), figsize=(20,20), stress_strain=False, sa
                 continue
 
             for j,i in enumerate(df):
+
                 if max(i["Force (kN)"]) > max_force_val:
                     max_force_val = max(i["Force (kN)"])
                 if stress_strain:
@@ -373,6 +376,10 @@ def main2(directory,subplotsaxes=(9,2), figsize=(20,20), stress_strain=False, sa
                             x2 = strain[mid_index:end_index]
                             y2 = stress[mid_index:end_index]
                             coeffs2 = np.polyfit(x2, y2, 1)
+                            if x2.max() > maxxlist[index]:
+                                maxxlist[index] = x2.max()
+                            if y2.max() > maxylist[index]:
+                                maxylist[index] = y2.max()
                         else:
                             # Perform linear regression on the incline of the data at two intervals (default 10%-40% and 40%-80% of the max force)
                             max_force = i["Force (kN)"].max()
@@ -390,6 +397,8 @@ def main2(directory,subplotsaxes=(9,2), figsize=(20,20), stress_strain=False, sa
                             x2 = i["Displacement (mm)"][mid_index:end_index]
                             y2 = i["Force (kN)"][mid_index:end_index]
                             coeffs2 = np.polyfit(x2, y2, 1)
+                            if x2.max() > maxx:
+                                maxx = x2.max()
                         # Plot the linear regression lines
                         ax[index].plot(x1, np.polyval(coeffs1, x1), color='orange', linestyle='--')
                         ax[index].plot(x2, np.polyval(coeffs2, x2), color='red', linestyle='--')
@@ -419,6 +428,9 @@ def main2(directory,subplotsaxes=(9,2), figsize=(20,20), stress_strain=False, sa
         i.grid(True)
         if max_force_val > 0:
             i.set_ylim(0, max_force_val*1.1)
+        if lin_reg:
+            i.set_xlim(0, maxxlist[j]*1.1)
+            i.set_ylim(0, maxylist[j]*1.1)
 
         
 
