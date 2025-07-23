@@ -246,7 +246,7 @@ def main2(directory,subplotsaxes=(9,2), figsize=(20,20), stress_strain=False, sa
     figsize is the size of the figure, subplotsaxes is the number of subplots in the x and y direction, stress_strain is a boolean that determines if the data should be plotted as stress-strain or force-displacement, savefig is a boolean that determines if the figure should be saved as a png file, and figname is the name of the figure.
     Naming convention should be either 0 or 1, where 0 will make the names as S1L5C1 and 1 will make the names as S23L5C1.\n
     """
-    
+    olddir = os.getcwd()
     # Change the current working directory to the specified directory
     os.chdir(directory)
     #This line is technically redundant as the argument could be passed directly to the function, but it is kept for clarity.
@@ -303,6 +303,7 @@ def main2(directory,subplotsaxes=(9,2), figsize=(20,20), stress_strain=False, sa
     }
 
     fig, ax = plt.subplots(subplotsaxes[0],subplotsaxes[1], figsize=figsize)
+    fig.set_dpi(300)
     ax = ax.flatten()
     max_force_val = 0
     if lin_reg:
@@ -437,9 +438,10 @@ def main2(directory,subplotsaxes=(9,2), figsize=(20,20), stress_strain=False, sa
     
     fig.suptitle(figname, fontsize=16, y=1.0)
     fig.tight_layout()
+    os.chdir(olddir)
     if savefig:
         fig.savefig(figname, dpi='figure', bbox_inches='tight')
-        print("Saved figure as compression_test_plots.png")
+        print("Saved figure as compression_test_plots.png in directory: " + olddir)
     if lin_reg:
         for i in coeffs:
             print(i[0],"\n",i[1],"\n")
@@ -460,6 +462,7 @@ def main():
     The function also creates a second csv file with the max forces for each test, with the name max_forces_output.csv.\n
     The second csv file only has full name of the test (maybe this should be changed to the naming convention?) and then the max forces for each test, and if pressure is set to True, it will also include the pressure values for each test.\n"""
     #Change cwd to the argument passed from the command line
+    olddir = os.getcwd()
     os.chdir(args.target_directory)
     
     # Get the if the target directory contains any csv files
@@ -497,6 +500,7 @@ def main():
         print(f"Processed file: {file} with avg max force: {datafile.avg_max_force:.3f} kN and avg max displacement: {datafile.avg_max_displacement:.3f} mm")
 
     print("Data extraction complete. Output written to" + args.output_file + " and max_forces_" + args.output_file)
+    os.chdir(olddir)
     return
 
 if __name__ == "__main__":
