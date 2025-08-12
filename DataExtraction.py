@@ -6,7 +6,7 @@ import csv
 import shutil
 import matplotlib.pyplot as plt
 from io import StringIO
-
+from time import sleep
 
 
 
@@ -39,17 +39,17 @@ class Datafile:
         self.lime_content = None
         self.diameter = 0.06 #meter - DETTE BETYDER AT LIGE NU BENYTTES MÅLINGEN PÅ DIAMETER IKKE
 
-        if "L" in name_parts[3]:
+        if "L".lower() in name_parts[3].lower():
             self.lime_content = name_parts[3]
             del name_parts[3]
 
 
-        if "Cu" in name_parts[3]:
+        if "Cu".lower() in name_parts[3].lower():
             self.curing = True
         else:
             self.curing = False
 
-        if "Dr" in name_parts[3]:
+        if "Dr".lower() in name_parts[3].lower():
             self.drying = True
         else:
             self.drying = False
@@ -58,15 +58,16 @@ class Datafile:
         #Add here any optional flags in naming convention (landerslev for example has Calcium which Egernsund does not, this if statement could be added easily, and so this is where we should add stuff like that)
         if len(name_parts) > 4:
             for i in name_parts[4:]:
-                if i == "Co2":
+                if i.lower() == "Co2".lower():
                     self.Co2 = True
 
-                if "Reco" in i:
+                if "Reco".lower() in i.lower():
                     self.recompression = True
                     self.new_wc = i[6:]
 
-                if "Wet" in i:
+                if "Wet".lower() in i.lower():
                     self.testtype = "WetCompression"
+
         
         #Nameing convention benyttes lige nu ikke da værdierne var gemt som booleans og ikke som strenge i classen, men jeg lader den være her hvis det skal bruges på et tidspunkt.
         naming_convention = {'Cu':'S', 'Dr':'D', 'L5':'L5', 'Co2':'C1', 'Reco':'Reco', 'Wet':'W'}
@@ -103,8 +104,10 @@ class Datafile:
         Returnerer alt værdien fra Classen i en liste, og max forces, displacements, gennemsnittet af max forces og standardafvigelsen gemmes i classens attributter.\n
         Også trykket bliver gemt, det er antaget at alle prøver har en diameter på 60 mm. \n
         !!!\n
-        Der mangler at implementere for splitting at vi i stedet skal bruge længdetrykket i stedet for arealttrykket på toppen.\n
         !!!"""
+
+        # TODO: Der mangler at implementere for splitting at vi i stedet skal bruge længdetrykket i stedet for arealttrykket på toppen.
+
         # Check if the file exists
         if not os.path.isfile(self.filename):
             raise ValueError(f"The file {self.filename} does not exist.")
@@ -144,19 +147,29 @@ class Datafile:
         nparray_max_forces = np.array(self.max_forces)
 
         #Calculate the pressure on the sample
-        self.pressure = nparray_max_forces / (np.pi * (self.diameter/2)**2)/10**3  # Pressure in kN/m^2 which is equivalent to kPa
+        #If testing type is splitting, we use a line pressure rather than an area pressure
+        try:
+            if args.test_type == "splitting":
+                self.pressure = nparray_max_forces/self.diameter # Pressure in kN/m
+            if (args.test_type == "compression") or (args.test_type == "wet_compression") or (args.test_type == "production"):
+                self.pressure = nparray_max_forces / (np.pi * (self.diameter/2)**2)/10**3  # Pressure in kN/m^2 which is equivalent to kPa
+        except NameError as e:
+            print("Test type not specified, assuming compression test. Ignore this if the program was not run through main.")
+            self.pressure = nparray_max_forces / (np.pi * (self.diameter/2)**2)/10**3  # Pressure in kN/m^2 which is equivalent to kPa
+            
         self.mean_pressure = np.mean(self.pressure)
         self.pressure_std = np.std(self.pressure)
         self.force_std = np.std(self.max_forces)
 
         # Return the values of the class as a string
-        output = str(f"{self.clay_type}, {self.sand_content}, {self.water_content}, {self.lime_content}, {self.curing}, {self.drying}, {self.temperature}, {self.Co2}, {self.recompression}, {self.new_wc}, {self.avg_max_force}, {self.force_std}, {self.mean_pressure}, {self.pressure_std}")
+        output = str(f"{self.name}, {self.clay_type}, {self.sand_content}, {self.water_content}, {self.lime_content}, {self.curing}, {self.drying}, {self.temperature}, {self.Co2}, {self.recompression}, {self.new_wc}, {self.avg_max_force}, {self.force_std}, {self.mean_pressure}, {self.pressure_std}")
         return output.split(", ")
     
     def plot_data(self):
         """Trækker dataet ud af CSV filen men returnerer en liste af de adskilte dataframes.\n
         Altså gør den det samme som starten af extract_data() men laver intet behandling på dataet.\n
         Dataet plottes uden for funktionens scope, så det kan bruges til at plotte dataet i et subplot.\n"""
+        # TODO : Ryk indmaden af denne funktion hen i anden funktion og kald også i extract_data() frem for at lave den samme stringio df gøgl to gange
         # Read the CSV file using pandas
         df = pd.read_csv(self.filename, sep=",", header=1)
         dfarray = []
@@ -203,9 +216,7 @@ def collect_csv(directory):
     olddir = os.getcwd()
     os.chdir(directory)
     #First access all the filenames
-    if not os.path.isdir(directory):
-        raise ValueError(f"The directory {directory} does not exist.")
-    filearr = [f for f in os.listdir(directory) if (os.path.isfile(os.path.join(directory, f)) and f.endswith('.csv') or os.path.isfile(os.path.join(directory, f)) and f.endswith('.txt'))]
+    filearr = get_filenames(directory)
     #Remove file extension and give name to output file
     final_filename = filearr[0][:-4].split("_")
     
@@ -238,14 +249,21 @@ def merge_output_files(output_file, input_files):
     merged_df.to_csv(output_file, index=False, sep=",", header=True)
     return merged_df
 
-def main2(directory,subplotsaxes=(9,2), figsize=(20,20), stress_strain=False, savefig=False, figname="COWI Test Plots", naming_convention=1, show_plot=True, lin_reg=False, min_val_reg=0.1, mid_val_reg=0.4, max_val_reg=0.8):
+def main2(directory,subplotsaxes=(9,2), 
+          figsize=(20,20), stress_strain=False, 
+          savefig=False, figname="COWI Test Plots", 
+          naming_convention=1, show_plot=True, 
+          lin_reg=False, min_val_reg=0.1, 
+          mid_val_reg=0.4, max_val_reg=0.8):
     """This function is run manually through jupyter notebook to generate plots.\n
     It takes a directory as an argument, with the collected csv files in it. It can only plot the data if the csv files are in the correct format, either being raw data or being the concatenated data from the collect_csv function.\n
     The function will plot the data in subplots, with the subplot axes specified by the subplotsaxes argument. The default is set to (9,2) as we have 18 series in Egernsund, so all the series can be plotted in a 2x9 grid.\n
     The function takes arguments: figsize [tuple/default=(20,20)], subplotsaxes [tuple/default=(9,2)], stress_strain [bool/default=False], savefig [bool/default=False], figname [str/default=COWI Test Plots], naming_convention [int/default=1].\n
     figsize is the size of the figure, subplotsaxes is the number of subplots in the x and y direction, stress_strain is a boolean that determines if the data should be plotted as stress-strain or force-displacement, savefig is a boolean that determines if the figure should be saved as a png file, and figname is the name of the figure.
+
     Naming convention should be either 0 or 1, where 0 will make the names as S1L5C1 and 1 will make the names as S23L5C1.\n
     """
+    printed = False # Variable to check if test type has been printed later - Ignore
     olddir = os.getcwd()
     # Change the current working directory to the specified directory
     os.chdir(directory)
@@ -263,6 +281,15 @@ def main2(directory,subplotsaxes=(9,2), figsize=(20,20), stress_strain=False, sa
     print(f"Found {len(file_list)} files in the target directory. Processing...")
 
     # Create dictionary for subplot orientation. The naming convention is the one used for Egernsund, the sseries names are doubled because 
+
+    """    labels = [("S1", "S23"), ("S2", "S40"), ("D1", "D23")]
+    subplot_index = {}
+    for j,i in enumerate(labels):
+        if naming_convention:
+            subplot_index[i[0]] = j
+        else:
+            subplot_index[i[1]] = j
+    """
     subplot_index = {
         "S1": 0,
         "S23": 0,
@@ -307,6 +334,15 @@ def main2(directory,subplotsaxes=(9,2), figsize=(20,20), stress_strain=False, sa
     ax = ax.flatten()
     max_force_val = 0
     if lin_reg:
+        
+        try:
+            csvfilename = "linear_regression_coefficients_"+args.test_type+".csv"
+        except NameError as e:
+            print("No test type specified, using default linear_regression_coefficients.csv")
+            csvfilename = "linear_regression_coefficients.csv"
+        csvfile = open(csvfilename, "w", newline="")
+        lin_reg_writer = csv.writer(csvfile)
+        lin_reg_writer.writerow(["Name", "a1", "a1_std", "b1", "b1_std", "a2", "a2_std", "b2", "b2_std"])
         coeffs=[]
         maxxlist = np.zeros(18)
         maxylist = np.zeros(18)
@@ -331,7 +367,7 @@ def main2(directory,subplotsaxes=(9,2), figsize=(20,20), stress_strain=False, sa
             else:
                 print(f"Warning: No subplot index found for {datafile.name}. Skipping this file.")
                 continue
-
+            
             for j,i in enumerate(df):
 
                 if max(i["Force (kN)"]) > max_force_val:
@@ -339,27 +375,44 @@ def main2(directory,subplotsaxes=(9,2), figsize=(20,20), stress_strain=False, sa
                 if stress_strain:
                     column_height = 60 #mm
                     column_diameter = 60 #mm
-                    surface_area = np.pi * (column_diameter/2*10**(-3))**2
-                    stress = i["Force (kN)"] / surface_area*10**(-3)  # Convert to MPa
+                    
+                    try:
+                        if args.test_type == "splitting":
+                            surface_area = column_height
+                            multfact = 1  # Keep pressureval
+                            unit = "kN/m"
+                        if (args.test_type == "compression") or (args.test_type == "wet_compression") or (args.test_type == "production"):
+                            surface_area = np.pi * (column_diameter/2*10**(-3))**2
+                            multfact = 10**(-3)  # Convert to MPa
+                            unit = "MPa"
+                              # Pressure in kN/m^2 which is equivalent to kPa
+                    except NameError as e:
+                        if not printed:
+                            print("Test type not specified, assuming compression test. Ignore this if the program was not run through main.")
+                            printed = True
+                        surface_area = np.pi * (column_diameter/2*10**(-3))**2
+                        multfact = 10**(-3)  # Convert to MPa
+                        unit = "MPa"
+                    stress = i["Force (kN)"] / surface_area*multfact  # Calulate stress
                     strain = i["Displacement (mm)"] / (column_height)*100  # Convert to strain in %
                     ax[index].plot(strain, stress, label = j)
                     ax[index].set_xlabel("Strain [%]")
-                    ax[index].set_ylabel("Stress [MPa]")
 
-                    if index%2 != 0:
-                        ax[index].yaxis.tick_right()
-                        ax[index].yaxis.set_label_position("right")
+                    ax[index].set_ylabel(f"Stress [{unit}]")
+
                     
                 else:
                     ax[index].plot(i["Displacement (mm)"], i["Force (kN)"])
                     ax[index].set_xlabel("Displacement (mm)")
                     ax[index].set_ylabel("Force (kN)")
                     
-                    if index%2 != 0:
-                        ax[index].yaxis.tick_right()
-                        ax[index].yaxis.set_label_position("right")
+                if index%2 != 0:
+                    ax[index].yaxis.tick_right()
+                    ax[index].yaxis.set_label_position("right")
+
                 if lin_reg == True:
                     try:
+                        # TODO : Make the linear regression in function and let the input be the data of stressstrain or force displacement
                         if stress_strain:
                             # Perform linear regression on the incline of the data at two intervals (default 10%-40% and 40%-80% of the max force)
                             max_stress = stress.max()
@@ -407,11 +460,12 @@ def main2(directory,subplotsaxes=(9,2), figsize=(20,20), stress_strain=False, sa
                         coeffs_list1_intersect.append(coeffs1[1])
                         coeffs_list2_slope.append(coeffs2[0])
                         coeffs_list2_intersect.append(coeffs2[1])
-                        coeffs.append([f"Coefficients for initial regression of {datafile.name}: a={np.mean(coeffs_list1_slope):.3f} ± {np.std(coeffs_list1_slope):.3f}, b={np.mean(coeffs_list1_intersect):.3f} ± {np.std(coeffs_list1_intersect):.3f}",f"Coefficients for later regression of {datafile.name}: a={np.mean(coeffs_list2_slope):.3f} ± {np.std(coeffs_list2_slope):.3f}, b={np.mean(coeffs_list2_intersect):.3f} ± {np.std(coeffs_list2_intersect):.3f}"])
+                        
                     except:
                         print(f"Linear regression failed for file {file}.")
                         continue
-            
+            if lin_reg:
+                coeffs.append([datafile.name, np.mean(coeffs_list1_slope), np.std(coeffs_list1_slope), np.mean(coeffs_list1_intersect), np.std(coeffs_list1_intersect), np.mean(coeffs_list2_slope), np.std(coeffs_list2_slope), np.mean(coeffs_list2_intersect), np.std(coeffs_list2_intersect)])
         except ValueError as e:
             print(f"Error processing file {file}: {e}")
 
@@ -438,13 +492,17 @@ def main2(directory,subplotsaxes=(9,2), figsize=(20,20), stress_strain=False, sa
     
     fig.suptitle(figname, fontsize=16, y=1.0)
     fig.tight_layout()
+    
+    if lin_reg:
+        for i in coeffs:
+            lin_reg_writer.writerow(i)
+        csvfile.close()
+        shutil.move(csvfilename, olddir + "/" + csvfilename)
+
     os.chdir(olddir)
     if savefig:
         fig.savefig(figname, dpi='figure', bbox_inches='tight')
         print("Saved figure as compression_test_plots.png in directory: " + olddir)
-    if lin_reg:
-        for i in coeffs:
-            print(i[0],"\n",i[1],"\n")
 
     if show_plot:
         plt.show()
@@ -469,8 +527,8 @@ def main():
     file_list = get_filenames(os.getcwd())
     csv_file = csv.writer(open(args.output_file, "w", newline=""))
     csv_file2 = csv.writer(open("max_forces"+args.output_file, "w", newline=""))
-    csv_file.writerow("Clay type, Sand content, Water content, Lime content, Curing, Drying, Temperature, CO2, Recompression, New WC, Mean_Max_Force [kN], Std force [kN], Pressure [MPa], Std Pressure [MPa]".split(", "))  
-
+    csv_file.writerow("Test Name, Clay type, Sand content, Water content, Lime content, Curing, Drying, Temperature, CO2, Recompression, New WC, Mean_Max_Force [kN], Std force [kN], Pressure [MPa], Std Pressure [MPa]".split(", "))  
+    
 
     if file_list == []:
         print("No csv files found in the current working directory.")
@@ -490,7 +548,7 @@ def main():
             csvfile2output = [datafile.filename]
             for i in datafile.max_forces:
                 csvfile2output.append(i)
-            if pressure:
+            if args.pressure:
                 csvfile2output.append("Pressure")
                 for i in datafile.pressure:
                     csvfile2output.append(i)
@@ -507,7 +565,9 @@ if __name__ == "__main__":
     # Run the main function if this script is executed directly
     # This allows the script to be imported without executing main()
     # This is useful if we want to check specific files in a notebook or another script
-    pressure = False   #Set to true if you want the calculated pressures in max_forces_output.csv
+
+    # TODO : Add a command line argument to specify if the pressure should be calculated or not, and then use that to set the pressure variable.
+    
 
     # Add argument flags from the command line to add the possibility of changing directory
     # This allows the user to specify the current working directory where the data files are located
@@ -516,6 +576,8 @@ if __name__ == "__main__":
                         help="The directory where the final output file should be placed.")
     parser.add_argument("-td", "--target_directory", type=str, default=os.getcwd(), help="The directory where the data files are located. If not specified, the current working directory will be used.")
     parser.add_argument("-out", "--output_file", type=str, default="output.csv", help="The name of the output file. Default is 'output.csv'.")
+    parser.add_argument("-p", "--pressure", action="store_true", help="Replace max_forces with pressure values rather than force values.")
+    parser.add_argument("-tt", "--test_type", type=str, default="", choices=["compression", "wet_compression", "splitting", "production"], help="The type of test being performed. Default is an empty string.")
     args = parser.parse_args()
     if args.output_file.endswith(".csv") is False:
         args.output_file = args.output_file + ".csv"
