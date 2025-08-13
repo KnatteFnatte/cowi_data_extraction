@@ -95,7 +95,10 @@ class MainWindow(QMainWindow):
         self.plot_checkbox.setChecked(False)
         self.linear_regression_checkbox = QCheckBox("Perform Linear Regression")
         self.linear_regression_checkbox.setChecked(False)
-
+        self.stress_strain_checkbox = QCheckBox("Calculate Stress-Strain")
+        self.stress_strain_checkbox.setChecked(True)
+        self.match_reco_checkbox = QCheckBox("Align Plots with Reco")
+        self.match_reco_checkbox.setChecked(True)
 
         # Create a text input field for output filename
         self.text_input = QLineEdit()
@@ -132,6 +135,10 @@ class MainWindow(QMainWindow):
         PlotLayout.addWidget(self.plot_checkbox)
         PlotLayout.addStretch()  # This pushes everything to the left
         PlotLayout.addWidget(self.linear_regression_checkbox)
+        PlotLayout.addStretch()  # This pushes everything to the left
+        PlotLayout.addWidget(self.stress_strain_checkbox)
+        PlotLayout.addStretch()  # This pushes everything to the left
+        PlotLayout.addWidget(self.match_reco_checkbox)
         PlotLayout.addStretch()  # This pushes everything to the left
 
         OutputFilenameLayout.addWidget(QLabel("Output Filename:"))
@@ -268,6 +275,10 @@ class MainWindow(QMainWindow):
             argarray.append("-sp")
             if self.linear_regression_checkbox.isChecked():
                 argarray.append("-lr")
+        if self.stress_strain_checkbox.isChecked():
+            argarray.append("-ss")
+        if self.match_reco_checkbox.isChecked():
+            argarray.append("-mr")
         p = subprocess.Popen(argarray,)
         self.process = p
         self.timer = QtCore.QTimer()

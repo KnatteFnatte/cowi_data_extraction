@@ -288,7 +288,11 @@ def main2(directory,subplotsaxes=(9,2),
 
     # Create dictionary for subplot orientation. The naming convention is the one used for Egernsund, the sseries names are doubled because 
 
-    labels = [("S1", "S23"), ("S2", "S40"), ("D1", "D23"), ("S1L5", "S23L5"), ("S2L5", "S40L5"), ("D1L5", "D23L5"), ("S1L5C1", "S23L5C1"), ("S2L5C1", "S40L5C1"), ("D1L5C1", "D23L5C1"), ("S1_Reco", "S23_Reco"), ("S2_Reco", "S40_Reco"), ("D1_Reco", "D23_Reco"), ("S1L5_Reco", "S23L5_Reco"), ("S2L5_Reco", "S40L5_Reco"), ("D1L5_Reco", "D23L5_Reco"), ("S1L5C1_Reco", "S23L5C1_Reco"), ("S2L5C1_Reco", "S40L5C1_Reco"), ("D1L5C1_Reco", "D23L5C1_Reco")]
+
+    if match_reco:
+        labels = [("S1", "S23"), ("S1_Reco","S23_Reco"), ("S2", "S40"), ("S2_Reco", "S40_Reco"), ("D1", "D23"), ("D1_Reco", "D23_Reco"), ("S1L5", "S23L5"), ("S1L5_Reco", "S23L5_Reco"), ("S2L5", "S40L5"), ("S2L5_Reco", "S40L5_Reco"), ("D1L5", "D23L5"), ("D1L5_Reco", "D23L5_Reco"), ("S1L5C1", "S23L5C1"), ("S1L5C1_Reco", "S23L5C1_Reco"), ("S2L5C1", "S40L5C1"), ("S2L5C1_Reco", "S40L5C1_Reco"), ("D1L5C1", "D23L5C1"), ("D1L5C1_Reco", "D23L5C1_Reco")]
+    else:
+        labels = [("S1", "S23"), ("S2", "S40"), ("D1", "D23"), ("S1L5", "S23L5"), ("S2L5", "S40L5"), ("D1L5", "D23L5"), ("S1L5C1", "S23L5C1"), ("S2L5C1", "S40L5C1"), ("D1L5C1", "D23L5C1"), ("S1_Reco", "S23_Reco"), ("S2_Reco", "S40_Reco"), ("D1_Reco", "D23_Reco"), ("S1L5_Reco", "S23L5_Reco"), ("S2L5_Reco", "S40L5_Reco"), ("D1L5_Reco", "D23L5_Reco"), ("S1L5C1_Reco", "S23L5C1_Reco"), ("S2L5C1_Reco", "S40L5C1_Reco"), ("D1L5C1_Reco", "D23L5C1_Reco")]
     subplot_index = {}
     for j,i in enumerate(labels):
         if naming_convention:
@@ -386,10 +390,10 @@ def main2(directory,subplotsaxes=(9,2),
                     
                     try:
                         if args.test_type == "splitting":
-                            surface_area = column_height
+                            surface_area = column_height*10**(-3)
                             multfact = 1  # Keep pressureval
                             unit = "kN/m"
-                        if (args.test_type == "compression") or (args.test_type == "wet_compression") or (args.test_type == "production"):
+                        elif (args.test_type == "compression") or (args.test_type == "wet_compression") or (args.test_type == "production"):
                             surface_area = np.pi * (column_diameter/2*10**(-3))**2
                             multfact = 10**(-3)  # Convert to MPa
                             unit = "MPa"
@@ -478,15 +482,16 @@ def main2(directory,subplotsaxes=(9,2),
             print(f"Error processing file {file}: {e}")
 
     if stress_strain:
-        max_force_val = max_force_val / surface_area*10**(-3)  # Convert to MPa
+        if args.test_type == "splitting":
+            surface_area = 60*10**(-3)
+            multfact = 1
+        elif (args.test_type == "compression") or (args.test_type == "wet_compression") or (args.test_type == "production"):
+            surface_area = np.pi * (60/2*10**(-3))**2
+            multfact = 10**(-3)  # Convert to MPa
+        max_force_val = max_force_val / surface_area*multfact  # Convert to MPa
     keylist = [key for key in subplot_index]
     for j,i in enumerate(ax):
-        if naming_convention == 0:
-            i.set_title(keylist[j], fontsize=10)
-        elif naming_convention == 1:
-            i.set_title(keylist[j], fontsize=10)
-        else:
-            print("Invalid naming convention. Please use 0 or 1.")
+        i.set_title(keylist[j], fontsize='large')
         i.legend(loc='upper right', fontsize='large')
         i.grid(True)
         if max_force_val > 0:
@@ -537,7 +542,12 @@ def main():
     csv_file = csv.writer(open(args.output_file, "w", newline=""))
     csv_file2 = csv.writer(open("max_forces"+args.output_file, "w", newline=""))
     if args.pressure:
-        row_to_write = "Test Name, Clay type, Sand content, Water content, Lime content, Curing, Drying, Temperature, CO2, Recompression, New WC, Mean_Max_Force [kN], Std force [kN], Pressure [MPa], Std Pressure [MPa]".split(", ")
+        row_to_write = "Test Name, Clay type, Sand content, Water content, Lime content, Curing, Drying, Temperature, CO2, Recompression, New WC, Mean_Max_Force [kN], Std force [kN]"
+        if args.test_type == "splitting":
+            row_to_write += ", Mean Pressure [kN/m], Std Pressure [kN/m]"
+        else:
+            row_to_write += ", Mean Pressure [MPa], Std Pressure [MPa]"
+        row_to_write = row_to_write.split(", ")
     else:
         row_to_write = "Test Name, Clay type, Sand content, Water content, Lime content, Curing, Drying, Temperature, CO2, Recompression, New WC, Mean_Max_Force [kN], Std force [kN]".split(", ")
     csv_file.writerow(row_to_write)
@@ -575,6 +585,7 @@ def main():
     return
 
 if __name__ == "__main__":
+    
     # Run the main function if this script is executed directly
     # This allows the script to be imported without executing main()
     # This is useful if we want to check specific files in a notebook or another script
@@ -594,10 +605,12 @@ if __name__ == "__main__":
     parser.add_argument("-sp", "--save_plot", action="store_true", help="Save the plot as a PNG file.")
     parser.add_argument("-lr", "--lin_reg", action="store_true", help="Perform linear regression on the data and save the coefficients to a CSV file.")
     parser.add_argument("-m", "--main", action="store_true", help="Run the main function.")
+    parser.add_argument("-ss", "--stress_strain", action="store_true", help="Calculate stress-strain.")
+    parser.add_argument("-mr", "--match_reco", action="store_true", help="Align plots with Reco.")
     args = parser.parse_args()
     if args.output_file.endswith(".csv") is False:
         args.output_file = args.output_file + ".csv"
-
+    match_reco = args.match_reco
     if args.main:
         main()
         shutil.move(args.target_directory+"/"+args.output_file, args.current_working_directory + "/" + args.output_file)
@@ -605,10 +618,4 @@ if __name__ == "__main__":
         shutil.move( args.target_directory+"/"+"max_forces" +args.output_file, args.current_working_directory + "/max_forces_" + args.output_file)
         print("Succesfully moved max_forces_" + args.output_file + " to " + args.current_working_directory)
     if args.save_plot:
-        if args.lin_reg:
-            main2(directory=args.target_directory, output_directory=args.current_working_directory, stress_strain=True, savefig=True, lin_reg=True, show_plot=False, figsize=(40,80), figname=args.output_file[:-4] + "_plots.png")
-        else:
-            main2(directory=args.target_directory, output_directory=args.current_working_directory, stress_strain=True, savefig=True, show_plot=False, figsize=(40,80), figname=args.output_file[:-4] + "_plots.png")
-
-    
-    
+        main2(directory=args.target_directory, output_directory=args.current_working_directory, stress_strain=args.stress_strain, savefig=True, lin_reg=args.lin_reg, show_plot=False, figsize=(40,80), figname=args.output_file[:-4] + "_plots.png")
