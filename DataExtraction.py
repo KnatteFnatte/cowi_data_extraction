@@ -141,6 +141,7 @@ class Datafile:
 
         # If we have multiple sets of data, we can average the max forces and displacements - det virker stadig selv hvis der kun er et datasæt, så er gennemsnittet bare trivielt. standardafvigelsen er dog ikke veldefineret i det tilfælde.
         self.max_forces = [data[0] for data in extracted_data]
+        self.force_std = np.std(self.max_forces)
         self.max_displacements = [data[1] for data in extracted_data]
         self.avg_max_force = np.mean(self.max_forces)
         self.avg_max_displacement = np.mean(self.max_displacements)
@@ -148,21 +149,25 @@ class Datafile:
 
         #Calculate the pressure on the sample
         #If testing type is splitting, we use a line pressure rather than an area pressure
-        try:
-            if args.test_type == "splitting":
-                self.pressure = nparray_max_forces/self.diameter # Pressure in kN/m
-            if (args.test_type == "compression") or (args.test_type == "wet_compression") or (args.test_type == "production"):
+        if args.pressure:
+            try:
+                if args.test_type == "splitting":
+                    self.pressure = nparray_max_forces/self.diameter # Pressure in kN/m
+                if (args.test_type == "compression") or (args.test_type == "wet_compression") or (args.test_type == "production"):
+                    self.pressure = nparray_max_forces / (np.pi * (self.diameter/2)**2)/10**3  # Pressure in kN/m^2 which is equivalent to kPa
+            except NameError as e:
+                print("Test type not specified, assuming compression test. Ignore this if the program was not run through main.")
                 self.pressure = nparray_max_forces / (np.pi * (self.diameter/2)**2)/10**3  # Pressure in kN/m^2 which is equivalent to kPa
-        except NameError as e:
-            print("Test type not specified, assuming compression test. Ignore this if the program was not run through main.")
-            self.pressure = nparray_max_forces / (np.pi * (self.diameter/2)**2)/10**3  # Pressure in kN/m^2 which is equivalent to kPa
-            
-        self.mean_pressure = np.mean(self.pressure)
-        self.pressure_std = np.std(self.pressure)
-        self.force_std = np.std(self.max_forces)
+                
+            self.mean_pressure = np.mean(self.pressure)
+            self.pressure_std = np.std(self.pressure)
+            output = str(f"{self.name}, {self.clay_type}, {self.sand_content}, {self.water_content}, {self.lime_content}, {self.curing}, {self.drying}, {self.temperature}, {self.Co2}, {self.recompression}, {self.new_wc}, {self.avg_max_force}, {self.force_std}, {self.mean_pressure}, {self.pressure_std}")
+        else:
+            output = str(f"{self.name}, {self.clay_type}, {self.sand_content}, {self.water_content}, {self.lime_content}, {self.curing}, {self.drying}, {self.temperature}, {self.Co2}, {self.recompression}, {self.new_wc}, {self.avg_max_force}, {self.force_std}")
 
         # Return the values of the class as a string
-        output = str(f"{self.name}, {self.clay_type}, {self.sand_content}, {self.water_content}, {self.lime_content}, {self.curing}, {self.drying}, {self.temperature}, {self.Co2}, {self.recompression}, {self.new_wc}, {self.avg_max_force}, {self.force_std}, {self.mean_pressure}, {self.pressure_std}")
+
+        
         return output.split(", ")
     
     def plot_data(self):
@@ -254,7 +259,8 @@ def main2(directory,subplotsaxes=(9,2),
           savefig=False, figname="COWI Test Plots", 
           naming_convention=1, show_plot=True, 
           lin_reg=False, min_val_reg=0.1, 
-          mid_val_reg=0.4, max_val_reg=0.8):
+          mid_val_reg=0.4, max_val_reg=0.8,
+          output_directory = os.getcwd()):
     """This function is run manually through jupyter notebook to generate plots.\n
     It takes a directory as an argument, with the collected csv files in it. It can only plot the data if the csv files are in the correct format, either being raw data or being the concatenated data from the collect_csv function.\n
     The function will plot the data in subplots, with the subplot axes specified by the subplotsaxes argument. The default is set to (9,2) as we have 18 series in Egernsund, so all the series can be plotted in a 2x9 grid.\n
@@ -264,7 +270,7 @@ def main2(directory,subplotsaxes=(9,2),
     Naming convention should be either 0 or 1, where 0 will make the names as S1L5C1 and 1 will make the names as S23L5C1.\n
     """
     printed = False # Variable to check if test type has been printed later - Ignore
-    olddir = os.getcwd()
+    olddir = output_directory
     # Change the current working directory to the specified directory
     os.chdir(directory)
     #This line is technically redundant as the argument could be passed directly to the function, but it is kept for clarity.
@@ -282,13 +288,14 @@ def main2(directory,subplotsaxes=(9,2),
 
     # Create dictionary for subplot orientation. The naming convention is the one used for Egernsund, the sseries names are doubled because 
 
-    """    labels = [("S1", "S23"), ("S2", "S40"), ("D1", "D23")]
+    labels = [("S1", "S23"), ("S2", "S40"), ("D1", "D23"), ("S1L5", "S23L5"), ("S2L5", "S40L5"), ("D1L5", "D23L5"), ("S1L5C1", "S23L5C1"), ("S2L5C1", "S40L5C1"), ("D1L5C1", "D23L5C1"), ("S1_Reco", "S23_Reco"), ("S2_Reco", "S40_Reco"), ("D1_Reco", "D23_Reco"), ("S1L5_Reco", "S23L5_Reco"), ("S2L5_Reco", "S40L5_Reco"), ("D1L5_Reco", "D23L5_Reco"), ("S1L5C1_Reco", "S23L5C1_Reco"), ("S2L5C1_Reco", "S40L5C1_Reco"), ("D1L5C1_Reco", "D23L5C1_Reco")]
     subplot_index = {}
     for j,i in enumerate(labels):
         if naming_convention:
-            subplot_index[i[0]] = j
-        else:
             subplot_index[i[1]] = j
+        else:
+            subplot_index[i[0]] = j
+    
     """
     subplot_index = {
         "S1": 0,
@@ -328,6 +335,7 @@ def main2(directory,subplotsaxes=(9,2),
         "D1L5C1_Reco": 17,
         "D23L5C1_Reco": 17,
     }
+    """
 
     fig, ax = plt.subplots(subplotsaxes[0],subplotsaxes[1], figsize=figsize)
     fig.set_dpi(300)
@@ -474,12 +482,12 @@ def main2(directory,subplotsaxes=(9,2),
     keylist = [key for key in subplot_index]
     for j,i in enumerate(ax):
         if naming_convention == 0:
-            i.set_title(keylist[j*2], fontsize=10)
+            i.set_title(keylist[j], fontsize=10)
         elif naming_convention == 1:
-            i.set_title(keylist[j*2+1], fontsize=10)
+            i.set_title(keylist[j], fontsize=10)
         else:
             print("Invalid naming convention. Please use 0 or 1.")
-        i.legend(loc='upper right', fontsize='small')
+        i.legend(loc='upper right', fontsize='large')
         i.grid(True)
         if max_force_val > 0:
             i.set_ylim(0, max_force_val*1.1)
@@ -502,10 +510,11 @@ def main2(directory,subplotsaxes=(9,2),
     os.chdir(olddir)
     if savefig:
         fig.savefig(figname, dpi='figure', bbox_inches='tight')
-        print("Saved figure as compression_test_plots.png in directory: " + olddir)
+        print(f"Saved figure as {figname} in directory: " + olddir)
 
     if show_plot:
         plt.show()
+
     
     
 
@@ -527,8 +536,11 @@ def main():
     file_list = get_filenames(os.getcwd())
     csv_file = csv.writer(open(args.output_file, "w", newline=""))
     csv_file2 = csv.writer(open("max_forces"+args.output_file, "w", newline=""))
-    csv_file.writerow("Test Name, Clay type, Sand content, Water content, Lime content, Curing, Drying, Temperature, CO2, Recompression, New WC, Mean_Max_Force [kN], Std force [kN], Pressure [MPa], Std Pressure [MPa]".split(", "))  
-    
+    if args.pressure:
+        row_to_write = "Test Name, Clay type, Sand content, Water content, Lime content, Curing, Drying, Temperature, CO2, Recompression, New WC, Mean_Max_Force [kN], Std force [kN], Pressure [MPa], Std Pressure [MPa]".split(", ")
+    else:
+        row_to_write = "Test Name, Clay type, Sand content, Water content, Lime content, Curing, Drying, Temperature, CO2, Recompression, New WC, Mean_Max_Force [kN], Std force [kN]".split(", ")
+    csv_file.writerow(row_to_write)
 
     if file_list == []:
         print("No csv files found in the current working directory.")
@@ -559,6 +571,7 @@ def main():
 
     print("Data extraction complete. Output written to" + args.output_file + " and max_forces_" + args.output_file)
     os.chdir(olddir)
+    
     return
 
 if __name__ == "__main__":
@@ -578,17 +591,24 @@ if __name__ == "__main__":
     parser.add_argument("-out", "--output_file", type=str, default="output.csv", help="The name of the output file. Default is 'output.csv'.")
     parser.add_argument("-p", "--pressure", action="store_true", help="Replace max_forces with pressure values rather than force values.")
     parser.add_argument("-tt", "--test_type", type=str, default="", choices=["compression", "wet_compression", "splitting", "production"], help="The type of test being performed. Default is an empty string.")
+    parser.add_argument("-sp", "--save_plot", action="store_true", help="Save the plot as a PNG file.")
+    parser.add_argument("-lr", "--lin_reg", action="store_true", help="Perform linear regression on the data and save the coefficients to a CSV file.")
+    parser.add_argument("-m", "--main", action="store_true", help="Run the main function.")
     args = parser.parse_args()
     if args.output_file.endswith(".csv") is False:
         args.output_file = args.output_file + ".csv"
 
+    if args.main:
+        main()
+        shutil.move(args.target_directory+"/"+args.output_file, args.current_working_directory + "/" + args.output_file)
+        print("Succesfully moved "+args.output_file+" to "+ args.current_working_directory)
+        shutil.move( args.target_directory+"/"+"max_forces" +args.output_file, args.current_working_directory + "/max_forces_" + args.output_file)
+        print("Succesfully moved max_forces_" + args.output_file + " to " + args.current_working_directory)
+    if args.save_plot:
+        if args.lin_reg:
+            main2(directory=args.target_directory, output_directory=args.current_working_directory, stress_strain=True, savefig=True, lin_reg=True, show_plot=False, figsize=(40,80), figname=args.output_file[:-4] + "_plots.png")
+        else:
+            main2(directory=args.target_directory, output_directory=args.current_working_directory, stress_strain=True, savefig=True, show_plot=False, figsize=(40,80), figname=args.output_file[:-4] + "_plots.png")
 
-    main()
-
-    shutil.move(args.target_directory+"/"+args.output_file, args.current_working_directory + "/" + args.output_file)
-    print("Succesfully moved "+args.output_file+" to "+ args.current_working_directory)
-    shutil.move( args.target_directory+"/"+"max_forces" +args.output_file, args.current_working_directory + "/max_forces_" + args.output_file)
-    print("Succesfully moved max_forces_" + args.output_file + " to " + args.current_working_directory)
-    input("Program successfully completed. Press Enter to exit.")
     
     

@@ -4,8 +4,11 @@ Align initial serie med reco serie i figureplotting så initial serie er til ven
 ##tilføj at alt bliver lavet til lowercase inden namechecking
 eksempel fil mere læselig og let at gennemgå for udefrakommende
 ##splitting test/compression test krav til funktioner for at få rigtigt linjetryk
-Tilføj til app.py at man skal klikke hvilken testtype det er, og om man vil have plots printet. Tilføj disse argumenter til runtimen i DataExtraction.py,
+##Tilføj til app.py at man skal klikke hvilken testtype det er, og om man vil have plots printet. Tilføj disse argumenter til runtimen i DataExtraction.py,
 og undersøg at det virker.
 (optional) tilføj et andet program som kan samle datafilerne, så man ikke behøver gøre brug af eksempel.ipynb filen for at lave databehandling, men kan gøre det hele fra et program.
 Opdater readme så den gennemgår DataExtraction mere gennemgående, så andre vil kunne ændre/tilføje i koden.
 Hvis tid; ryk dataextraction ud i seperat funktion og kør den nested fra funktionerne main og main2, da de er meget similar pt.
+
+
+##har tilføjet to argumenter med return type Bool - Skal tilføje knapper til app.py og lade dem tilføjes som argumenter til subprocess. Skal lave errorhandling på hvis man klikker linreg af mens sp ikke er på, da man ikke kan lave lineær reg uden et plot.
