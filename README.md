@@ -1,23 +1,13 @@
 # cowi_data_extraction
 
 ###### Important ######
-the pre-requisites for running this program is having python installed, and pip installing the packages from requirements. To do this, run the following command from the terminal (make sure to be in the correct working directory, or requirements.txt cannot be found):
-
-        python -m pip install -r requirements.txt
-
-or
-
-        python3 -m pip install -r requirements.txt
-
-I recommend starting in the Eksempel.ipynb for a walkthrough on how to crunch the data, and if any edgecases are found where it doesn't this can be added.
-
-Code for extracting relevant data from cowi clay experiments
+Follow the installation guide.pdf for instructions on how to run the program.
 
 The run.bat can be run on windows computers, which allows specification of target directory, output directory and filename.
 
 if running through linux/mac use following commmand from terminal: 
 
-        python DataExtraction.py -td [path to target directory - default current working directory] -cwd [place to put output file - default current working directory] -out [output file name - default "output.csv"]
+        python app.py
 
 All the files the data extraction runs on needs to be of the format
 
@@ -27,6 +17,13 @@ An example of this:
 
 ERS_S15_W15.8_L5_Cu28-C23_Reco-W17.2
 
-If you have data from the Instrom machine, you can run the collect_csv function from the notebook specifying the path to the folder with the output csv or txt files from the instrom machines. This will concatenate the csv laterally, which the dataextraction script is prepared to handle.
+in Datafile.__init__() new flags can be added if there is add more naming convention for example if we wish to add algae with the naming convention "Al%" to the mix the lines of code should be added in the if statement on line 59:
+if "Al".lower() in i.lower():
+        self.algae = True
+        self.alcontent = i[2:]
 
-So for example for the ERS tests, we run the collect_csv function on the folder from each test. The output files are then collected in a single folder, which the dataextraction script is then run on. This gives a csv file which can then be further used with excel.
+And perhaps intiate self.algae earlier as self.algae = False
+
+When naming conventions change, the dictionary of main2() should be changed, since it is used for indexing and namechecking when plotting data.
+
+The sizes of the tests are assumed to all be 60 mm diameter and 60 mm height since it was not easily extractable from the instron data, and the name checking with a different excel document would have caused more value than its worth. Just be aware that if the sizes change the code should be modified or the pressure values will be incorrect.
