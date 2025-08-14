@@ -491,8 +491,8 @@ def main2(directory,subplotsaxes=(9,2),
         max_force_val = max_force_val / surface_area*multfact  # Convert to MPa
     keylist = [key for key in subplot_index]
     for j,i in enumerate(ax):
-        i.set_title(keylist[j], fontsize='large')
-        i.legend(loc='upper right', fontsize='large')
+        i.set_title(keylist[j])
+        i.legend(loc='upper right')
         i.grid(True)
         if max_force_val > 0:
             i.set_ylim(0, max_force_val*1.1)
@@ -503,7 +503,7 @@ def main2(directory,subplotsaxes=(9,2),
         
 
     
-    fig.suptitle(figname, fontsize=16, y=1.0)
+    fig.suptitle(figname, fontsize=50, y=1.0)
     fig.tight_layout()
     
     if lin_reg:
@@ -591,7 +591,11 @@ if __name__ == "__main__":
     # This is useful if we want to check specific files in a notebook or another script
 
     # TODO : Add a command line argument to specify if the pressure should be calculated or not, and then use that to set the pressure variable.
-    
+    plt.rcParams['lines.linewidth'] = 5
+    plt.rcParams['axes.labelsize'] = 20
+    plt.rcParams['xtick.labelsize'] = 25
+    plt.rcParams['ytick.labelsize'] = 25
+    plt.rcParams['axes.titlesize'] = 30
 
     # Add argument flags from the command line to add the possibility of changing directory
     # This allows the user to specify the current working directory where the data files are located
