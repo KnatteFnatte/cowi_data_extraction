@@ -2,6 +2,7 @@ import PyQt6
 from PyQt6 import QtCore
 from PyQt6.QtWidgets import QApplication, QMainWindow, QPushButton, QVBoxLayout, QWidget, QLineEdit, QComboBox, QHBoxLayout, QCheckBox
 import subprocess
+import sys
 from time import sleep
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -190,9 +191,9 @@ class MainWindow(QMainWindow):
         self.running_process = True
         
         errormessage = "Running Directory Collector..."
-
+        
         self.Errormessage.setText(errormessage)
-        p = subprocess.Popen(["python", "DirectoryCollector.py"])
+        p = subprocess.Popen([sys.executable, "DirectoryCollector.py"])
         self.process = p
         # Run the main function with the selected directories
         self.timer = QtCore.QTimer()
@@ -264,7 +265,7 @@ class MainWindow(QMainWindow):
         output_filename = self.text_input.text() or "output.csv"
         if not output_filename.endswith(".csv"):
             output_filename += ".csv"
-        argarray = ["python", "DataExtraction.py","-td", self.target_directory,"-cwd", self.output_directory, "-out", output_filename]
+        argarray = [sys.executable, "DataExtraction.py","-td", self.target_directory,"-cwd", self.output_directory, "-out", output_filename]
         if self.pressure_checkbox.isChecked():
             argarray.append(pressure)
         argarray.append("-tt")
