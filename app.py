@@ -221,7 +221,7 @@ class MainWindow(QMainWindow):
     def on_button_run_program_click(self):
         if self.running_process:
             return
-        self.running_process = True
+
         errormessage = None
         should_return = False
         if not self.target_directory or not self.output_directory:
@@ -255,6 +255,7 @@ class MainWindow(QMainWindow):
             
             return
         else:
+            self.running_process = True
             self.Errormessage.setText("Running program...")
 
         if self.pressure_checkbox.isChecked():
