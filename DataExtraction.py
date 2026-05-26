@@ -235,7 +235,7 @@ def clean_nonInstron_file(path: str, target_path: str) -> None:
             f.write("\n")
 
 def reform_files(directory: str) -> str:
-    new_directory = directory + "_reformed"
+    new_directory = directory + "_InstronFormat"
     filename = os.path.basename(directory)
     for j, i in enumerate(os.listdir(directory)):
         if i.endswith(".csv"):
@@ -245,7 +245,7 @@ def reform_files(directory: str) -> str:
 
 #Function for collecting data outputs from single test (Instrom creates multiple CSV files - we only want one)
 
-def collect_csv(directory, instron = True):
+def collect_csv(directory, instron = True, preserve_instron_format = False):
     """Take a folder of csv files and concatenate them laterally (designed for csv files that are semicolon separated, as they will be concatenated laterally with comma seperation)\n
     The outputfile is saved in the argument directory, and it is assumed all the files have the same name but then _1, _2, etc. appended to the end of the filename.\n
     The output file is named after the first file in the directory, with the file extension .csv\n
@@ -277,8 +277,10 @@ def collect_csv(directory, instron = True):
     os.chdir(olddir)
     masterdf.to_csv(final_filename, index=False, sep=",", header=True)
 
-    if not instron:
+    if not instron and not preserve_instron_format:
         shutil.rmtree(directory)
+    elif not instron and preserve_instron_format:
+        shutil.move(directory, os.getcwd()+"/"+os.path.basename(directory))
 
 
 
