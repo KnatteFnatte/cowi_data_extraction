@@ -42,6 +42,10 @@ class MainWindow(QMainWindow):
         self.label_input = QLabel("Data Directory:")
         self.label_input.setStyleSheet("font-weight: bold;")
 
+        #Add a checkbox to say whether it is instron or not:
+        self.CheckBox = QCheckBox("Data er fra den nye maskine")
+
+
         # Create a button to run the program
         button_run_program = QPushButton("Run Program")
         button_run_program.setFixedHeight(30)
@@ -57,6 +61,7 @@ class MainWindow(QMainWindow):
         layout_InputDirectoryHandler.addWidget(button_input)
         layout_OutputDirectoryHandler.addWidget(self.label_output)
         layout_OutputDirectoryHandler.addWidget(button_output)
+        layout_OutputDirectoryHandler.addWidget(self.CheckBox)
         layout_RunProgramButton.addWidget(button_run_program)
         layout_ErrorHandler.addWidget(self.Errormessage)
         # Add the layouts to the central widget
@@ -66,6 +71,9 @@ class MainWindow(QMainWindow):
         main_layout.addStretch()  # Add stretch to push the button to the bottom
         main_layout.addLayout(layout_RunProgramButton)
         main_layout.addLayout(layout_ErrorHandler)
+
+        
+        
 
     def on_button_input_click(self):
         window1 = DirectoryBrowser(title="Select Datafile Directory")
@@ -100,28 +108,28 @@ class MainWindow(QMainWindow):
             return
         
         # Run the main function with the selected directories
-        run(self.target_directory, self.output_directory)
+        self.run(self.target_directory, self.output_directory)
         
         self.Errormessage.setText("Process completed successfully!")
         self.running_process = False
 
-def run(data_directory, output_directory):
-    #Nu vil vi gerne lave et forloop i data directory, som går ind i hver undermappe og laver en datafil for hver undermappe.
-    os.chdir(data_directory)
+    def run(self, data_directory, output_directory):
+        #Nu vil vi gerne lave et forloop i data directory, som går ind i hver undermappe og laver en datafil for hver undermappe.
+        os.chdir(data_directory)
 
-    #Vi laver en liste over alle undermapperne i data directory.
-    subdirectories = [d for d in os.listdir(data_directory) if os.path.isdir(os.path.join(data_directory, d))]
+        #Vi laver en liste over alle undermapperne i data directory.
+        subdirectories = [d for d in os.listdir(data_directory) if os.path.isdir(os.path.join(data_directory, d))]
 
-    #Vi går nu tilbage til output_directory så csv filerne placeres der.
-    os.chdir(output_directory)
+        #Vi går nu tilbage til output_directory så csv filerne placeres der.
+        os.chdir(output_directory)
 
-    #Nu laver vi et forloop der går ind i hver undermappe og laver en datafil for hver undermappe.
-    for subdirectory in subdirectories:
-        #Vi laver en sti til undermappen og går ind i den.
-        subdirectory_path = os.path.join(data_directory, subdirectory)
-        
-        #Nu bruges collect_csv funktionen, bemærk at siden vi lige nu er i data_directory, så vil collect_csv funktionen tage alle csv-filerne i undermappen og samle dem i en datafil.
-        collect_csv(subdirectory_path)
+        #Nu laver vi et forloop der går ind i hver undermappe og laver en datafil for hver undermappe.
+        for subdirectory in subdirectories:
+            #Vi laver en sti til undermappen og går ind i den.
+            subdirectory_path = os.path.join(data_directory, subdirectory)
+            
+            #Nu bruges collect_csv funktionen, bemærk at siden vi lige nu er i data_directory, så vil collect_csv funktionen tage alle csv-filerne i undermappen og samle dem i en datafil.
+            collect_csv(subdirectory_path, instron = not self.CheckBox.isChecked())
 
 if __name__ == "__main__":
     app = QApplication([])
