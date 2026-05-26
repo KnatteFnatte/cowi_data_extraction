@@ -44,6 +44,7 @@ class MainWindow(QMainWindow):
 
         #Add a checkbox to say whether it is instron or not:
         self.CheckBox = QCheckBox("Data er fra den nye maskine")
+        self.CheckBoxPreserveInstron = QCheckBox("Behold mappe med rådata")
 
 
         # Create a button to run the program
@@ -62,6 +63,7 @@ class MainWindow(QMainWindow):
         layout_OutputDirectoryHandler.addWidget(self.label_output)
         layout_OutputDirectoryHandler.addWidget(button_output)
         layout_OutputDirectoryHandler.addWidget(self.CheckBox)
+        layout_OutputDirectoryHandler.addWidget(self.CheckBoxPreserveInstron)
         layout_RunProgramButton.addWidget(button_run_program)
         layout_ErrorHandler.addWidget(self.Errormessage)
         # Add the layouts to the central widget
@@ -129,7 +131,7 @@ class MainWindow(QMainWindow):
             subdirectory_path = os.path.join(data_directory, subdirectory)
             
             #Nu bruges collect_csv funktionen, bemærk at siden vi lige nu er i data_directory, så vil collect_csv funktionen tage alle csv-filerne i undermappen og samle dem i en datafil.
-            collect_csv(subdirectory_path, instron = not self.CheckBox.isChecked())
+            collect_csv(subdirectory_path, instron = not self.CheckBox.isChecked(), preserve_instron_format = self.CheckBoxPreserveInstron.isChecked())
 
 if __name__ == "__main__":
     app = QApplication([])
