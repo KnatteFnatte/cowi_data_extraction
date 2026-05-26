@@ -211,14 +211,51 @@ def get_directories(directory):
         raise ValueError(f"The directory {directory} does not exist.")
     return [directory+"/"+d for d in os.listdir(directory) if os.path.isdir(os.path.join(directory, d))]
 
+#Function for reforming files from the new machine to the Instron machine format
+
+def clean_nonInstron_file(path: str, target_path: str) -> None:
+    header = "Raw Data\nTime;Displacement;Force\n(s);(mm);(kN)\n"
+    with open(path, "r", encoding="latin1") as f:
+        lines = f.readlines()
+    if not os.path.isdir(os.path.dirname(target_path)):
+        os.makedirs(os.path.dirname(target_path))
+    with open(target_path, "w", encoding="utf-8") as f:
+        f.write(header)
+        for line in lines[8:]: # The first 7 lines are metadata and can be skipped
+            newline = line.split(";")
+            f.write("0")
+            for j, element in enumerate(newline[::-1]): # The new machine writes the data in reverse order, so we need to reverse it back
+                element = element.replace('"', '') # Remove quotation marks from the elements
+                element = element.replace(",", ".") # Replace commas with dots for decimal separation
+                if j == 0:
+                    element = str(float(element)*1000*-1) # Convert displacement from m to mm
+                if j == 1:
+                    element = str(float(element)/1000*-1) # Convert force from N to kN
+                f.write(f";{element}")
+            f.write("\n")
+
+def reform_files(directory: str) -> str:
+    new_directory = directory + "_reformed"
+    filename = os.path.basename(directory)
+    for j, i in enumerate(os.listdir(directory)):
+        if i.endswith(".csv"):
+            clean_nonInstron_file(os.path.join(directory, i), os.path.join(new_directory, filename+"_"+str(j)+".csv"))
+    return new_directory
+
+
 #Function for collecting data outputs from single test (Instrom creates multiple CSV files - we only want one)
 
-def collect_csv(directory):
+def collect_csv(directory, instron = True):
     """Take a folder of csv files and concatenate them laterally (designed for csv files that are semicolon separated, as they will be concatenated laterally with comma seperation)\n
     The outputfile is saved in the argument directory, and it is assumed all the files have the same name but then _1, _2, etc. appended to the end of the filename.\n
     The output file is named after the first file in the directory, with the file extension .csv\n
     Output file is saved in the current working directory, so make sure to change the directory before calling this function.\n"""
+    
     olddir = os.getcwd()
+    if not instron:
+        directory = reform_files(directory)
+
+
     os.chdir(directory)
     #First access all the filenames
     filearr = get_filenames(directory)
@@ -239,6 +276,9 @@ def collect_csv(directory):
     
     os.chdir(olddir)
     masterdf.to_csv(final_filename, index=False, sep=",", header=True)
+
+    if not instron:
+        shutil.rmtree(directory)
 
 
 
